@@ -1,0 +1,26 @@
+# Render Blueprint for TiDB Sync Worker
+# Deploy: https://render.com/deploy?repo=YOUR_GITHUB_REPO_URL
+
+services:
+  - type: cron
+    name: tidb-sync-worker
+    runtime: docker
+    schedule: "0 6,18 * * *"  # 6 AM and 6 PM UTC daily
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: TIDB_HOST
+        value: gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+      - key: TIDB_PORT
+        value: "4000"
+      - key: TIDB_USER
+        sync: false  # Set manually in dashboard
+      - key: TIDB_PASSWORD
+        sync: false  # Set manually in dashboard (secret)
+      - key: TIDB_DATABASE
+        value: test
+      - key: IDRIVE_ACCESS_KEY
+        sync: false  # Set manually in dashboard
+      - key: IDRIVE_SECRET_KEY
+        sync: false  # Set manually in dashboard (secret)
+      - key: IDRIVE_ENDPOINT
+        sync: false  # Set manually in dashboard
