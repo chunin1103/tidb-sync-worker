@@ -9,9 +9,11 @@ Endpoints:
 - GET /         - Health check (keeps Render happy)
 - GET /status   - Show last sync status and next scheduled run
 - POST /sync    - Trigger manual sync
+
+No Docker required - uses boto3 for S3-compatible storage access.
 """
 
-import subprocess
+import boto3
 import gzip
 import pymysql
 import sys
@@ -66,45 +68,53 @@ IDRIVE_ACCESS_KEY = os.environ.get('IDRIVE_ACCESS_KEY', '')
 IDRIVE_SECRET_KEY = os.environ.get('IDRIVE_SECRET_KEY', '')
 IDRIVE_ENDPOINT = os.environ.get('IDRIVE_ENDPOINT', '')
 
-CATEGORIES_PRODUCTS_PATH = 'dbdaily/db/categories-products/'
-ORDERS_PATH = 'dbdaily/db/orders/'
+# S3 bucket and paths
+S3_BUCKET = os.environ.get('IDRIVE_BUCKET', 'dbdaily')
+CATEGORIES_PRODUCTS_PREFIX = 'db/categories-products/'
+ORDERS_PREFIX = 'db/orders/'
 
 
 # =============================================================================
 # Core Sync Functions
 # =============================================================================
 
-def get_rclone_base_args():
-    """Get base rclone arguments with S3 credentials."""
-    return [
-        'rclone',
-        '--s3-provider=Other',
-        f'--s3-access-key-id={IDRIVE_ACCESS_KEY}',
-        f'--s3-secret-access-key={IDRIVE_SECRET_KEY}',
-        f'--s3-endpoint={IDRIVE_ENDPOINT}'
-    ]
+def get_s3_client():
+    """Get boto3 S3 client configured for IDrive e2."""
+    return boto3.client(
+        's3',
+        endpoint_url=IDRIVE_ENDPOINT,
+        aws_access_key_id=IDRIVE_ACCESS_KEY,
+        aws_secret_access_key=IDRIVE_SECRET_KEY
+    )
 
 
-def get_latest_backup_file(bucket_path):
+def get_latest_backup_file(prefix):
     """List files in IDrive bucket and return the latest backup filename."""
-    logger.info(f"Finding latest backup in {bucket_path}...")
+    logger.info(f"Finding latest backup in {S3_BUCKET}/{prefix}...")
 
-    args = get_rclone_base_args() + ['lsf', f':s3:{bucket_path}', '--files-only']
-    result = subprocess.run(args, capture_output=True, text=True)
+    try:
+        s3 = get_s3_client()
+        response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
 
-    if result.returncode != 0:
-        logger.error(f"rclone lsf failed: {result.stderr}")
+        if 'Contents' not in response:
+            logger.error(f"No files found in {S3_BUCKET}/{prefix}")
+            return None
+
+        # Get all .sql.gz files and sort by key (which includes timestamp)
+        files = [obj['Key'] for obj in response['Contents'] if obj['Key'].endswith('.sql.gz')]
+        if not files:
+            logger.error(f"No .sql.gz files found in {S3_BUCKET}/{prefix}")
+            return None
+
+        files.sort()
+        latest_key = files[-1]
+        latest_filename = latest_key.split('/')[-1]
+        logger.info(f"Latest backup: {latest_filename}")
+        return latest_key  # Return full key for S3 get_object
+
+    except Exception as e:
+        logger.error(f"Failed to list S3 objects: {e}")
         return None
-
-    files = [f.strip() for f in result.stdout.strip().split('\n') if f.strip()]
-    if not files:
-        logger.error(f"No files found in {bucket_path}")
-        return None
-
-    files.sort()
-    latest = files[-1]
-    logger.info(f"Latest backup: {latest}")
-    return latest
 
 
 def apply_tidb_fixes(statement):
@@ -166,18 +176,20 @@ def apply_tidb_fixes(statement):
     return statement
 
 
-def stream_and_execute(bucket_path, filename, conn, cursor, dataset_name):
-    """Stream SQL from IDrive, decompress, and execute on TiDB."""
+def stream_and_execute(s3_key, conn, cursor, dataset_name):
+    """Stream SQL from IDrive S3, decompress, and execute on TiDB."""
     global sync_state
 
-    full_path = f':s3:{bucket_path}{filename}'
+    filename = s3_key.split('/')[-1]
     logger.info(f"Starting {dataset_name} sync from {filename}")
     sync_state['current_phase'] = dataset_name
 
-    args = get_rclone_base_args() + ['cat', full_path]
-    proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    # Stream directly from S3 using boto3
+    s3 = get_s3_client()
+    response = s3.get_object(Bucket=S3_BUCKET, Key=s3_key)
 
-    decompressor = gzip.GzipFile(fileobj=proc.stdout)
+    # Decompress the gzipped stream
+    decompressor = gzip.GzipFile(fileobj=response['Body'])
     text_stream = io.TextIOWrapper(decompressor, encoding='utf-8', errors='replace')
 
     statement_buffer = []
@@ -236,13 +248,6 @@ def stream_and_execute(bucket_path, filename, conn, cursor, dataset_name):
                 if e.args[0] != 1062 and errors <= 20:
                     logger.warning(f"SQL Error [{e.args[0]}]: {str(e)[:150]}")
 
-    proc.stdout.close()
-    proc.wait()
-
-    stderr = proc.stderr.read().decode()
-    if proc.returncode != 0 and stderr:
-        logger.warning(f"rclone warning: {stderr[:200]}")
-
     logger.info(f"{dataset_name} complete: {statements_executed} statements, {errors} errors")
     return statements_executed, errors
 
@@ -277,18 +282,18 @@ def run_sync():
         # Sync Categories/Products
         logger.info("-" * 40)
         logger.info("PHASE 1: Categories/Products")
-        cat_file = get_latest_backup_file(CATEGORIES_PRODUCTS_PATH)
-        if cat_file:
-            stmts, errs = stream_and_execute(CATEGORIES_PRODUCTS_PATH, cat_file, conn, cursor, "Categories/Products")
+        cat_key = get_latest_backup_file(CATEGORIES_PRODUCTS_PREFIX)
+        if cat_key:
+            stmts, errs = stream_and_execute(cat_key, conn, cursor, "Categories/Products")
             total_statements += stmts
             total_errors += errs
 
         # Sync Orders
         logger.info("-" * 40)
         logger.info("PHASE 2: Orders/Customers")
-        orders_file = get_latest_backup_file(ORDERS_PATH)
-        if orders_file:
-            stmts, errs = stream_and_execute(ORDERS_PATH, orders_file, conn, cursor, "Orders/Customers")
+        orders_key = get_latest_backup_file(ORDERS_PREFIX)
+        if orders_key:
+            stmts, errs = stream_and_execute(orders_key, conn, cursor, "Orders/Customers")
             total_statements += stmts
             total_errors += errs
 
@@ -362,7 +367,8 @@ def status():
         'environment': {
             'tidb_host': TIDB_CONFIG['host'],
             'tidb_database': TIDB_CONFIG['database'],
-            'idrive_endpoint': IDRIVE_ENDPOINT
+            'idrive_endpoint': IDRIVE_ENDPOINT,
+            's3_bucket': S3_BUCKET
         }
     })
 

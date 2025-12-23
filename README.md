@@ -2,12 +2,15 @@
 
 Web service with built-in scheduler that syncs IDrive e2 backups to TiDB Cloud.
 
+**No Docker required** - uses native Python runtime with boto3 for S3 access.
+
 ## Features
 
 - **Auto-sync twice daily** at 6 AM and 6 PM UTC (via APScheduler)
 - **Manual sync** via POST /sync endpoint
 - **Status monitoring** via /status endpoint
 - **Health check** at / for Render uptime monitoring
+- **Flask web server** - add your own routes for a full website
 
 ## API Endpoints
 
@@ -33,7 +36,9 @@ Web service with built-in scheduler that syncs IDrive e2 backups to TiDB Cloud.
 2. Click **New** → **Web Service**
 3. Connect `chunin1103/tidb-sync-worker`
 4. Configure:
-   - **Runtime:** Docker
+   - **Runtime:** Python
+   - **Build Command:** `pip install -r requirements.txt`
+   - **Start Command:** `python sync_worker.py`
    - **Health Check Path:** `/`
 5. Add environment variables below
 6. Deploy!
@@ -49,7 +54,8 @@ Web service with built-in scheduler that syncs IDrive e2 backups to TiDB Cloud.
 | `TIDB_DATABASE` | `test` |
 | `IDRIVE_ACCESS_KEY` | (your IDrive access key) |
 | `IDRIVE_SECRET_KEY` | (your IDrive secret key) |
-| `IDRIVE_ENDPOINT` | `k8j8.or4.idrivee2-57.com` |
+| `IDRIVE_ENDPOINT` | `https://k8j8.or4.idrivee2-57.com` |
+| `IDRIVE_BUCKET` | `dbdaily` |
 
 ## Usage
 

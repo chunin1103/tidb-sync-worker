@@ -1,11 +1,14 @@
 # Render Blueprint for TiDB Sync Worker (Web Service)
 # Deploy: https://render.com/deploy?repo=YOUR_GITHUB_REPO_URL
+#
+# No Docker required - uses native Python runtime with boto3
 
 services:
   - type: web
     name: tidb-sync-worker
-    runtime: docker
-    dockerfilePath: ./Dockerfile
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python sync_worker.py
     healthCheckPath: /
     envVars:
       - key: TIDB_HOST
@@ -24,3 +27,5 @@ services:
         sync: false  # Set manually in dashboard (secret)
       - key: IDRIVE_ENDPOINT
         sync: false  # Set manually in dashboard
+      - key: IDRIVE_BUCKET
+        value: dbdaily
