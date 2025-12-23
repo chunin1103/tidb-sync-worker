@@ -1,78 +1,97 @@
 # TiDB Sync Worker
 
-Automated daily sync from IDrive e2 backups to TiDB Cloud.
+Web service with built-in scheduler that syncs IDrive e2 backups to TiDB Cloud.
 
-## What It Does
+## Features
 
-- Runs **twice daily** (6 AM and 6 PM UTC)
-- Syncs **Categories/Products** (~5.5 MB, ~2-3 min)
-- Syncs **Orders/Customers** (~112 MB, ~15-20 min)
-- Auto-detects latest backup file
-- Applies all MySQL→TiDB compatibility fixes
+- **Auto-sync twice daily** at 6 AM and 6 PM UTC (via APScheduler)
+- **Manual sync** via POST /sync endpoint
+- **Status monitoring** via /status endpoint
+- **Health check** at / for Render uptime monitoring
 
-## Deployment to Render
+## API Endpoints
 
-### Option 1: Blueprint (Recommended)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/` | GET | Health check (returns service status) |
+| `/status` | GET | Detailed sync status + next scheduled run |
+| `/sync` | POST | Trigger manual sync |
+| `/sync` | GET | Info about last sync |
 
-1. Push this folder to a GitHub repository
-2. Go to [Render Dashboard](https://dashboard.render.com)
-3. Click **New** → **Blueprint**
-4. Connect your GitHub repo
-5. Render will read `render.yaml` and create the cron job
-6. Set the secret environment variables (see below)
+## Deployment
 
-### Option 2: Manual Setup
+### If you have an existing Render web service:
 
-1. Push this folder to a GitHub repository
-2. Go to [Render Dashboard](https://dashboard.render.com)
-3. Click **New** → **Cron Job**
-4. Connect your GitHub repo
-5. Configure:
-   - **Name:** tidb-sync-worker
+1. In Render Dashboard, go to your service settings
+2. Change the **Repository** to this repo
+3. Add the environment variables below
+4. Deploy!
+
+### Fresh deployment:
+
+1. Go to [Render Dashboard](https://dashboard.render.com)
+2. Click **New** → **Web Service**
+3. Connect `chunin1103/tidb-sync-worker`
+4. Configure:
    - **Runtime:** Docker
-   - **Dockerfile Path:** ./Dockerfile
-   - **Schedule:** `0 6,18 * * *`
-6. Add environment variables (see below)
-7. Click **Create Cron Job**
+   - **Health Check Path:** `/`
+5. Add environment variables below
+6. Deploy!
 
 ## Environment Variables
 
-Set these in the Render dashboard:
-
 | Variable | Value |
 |----------|-------|
-| `TIDB_HOST` | gateway01.ap-southeast-1.prod.aws.tidbcloud.com |
-| `TIDB_PORT` | 4000 |
-| `TIDB_USER` | 3oTjjLfAngfGpch.root |
+| `TIDB_HOST` | `gateway01.ap-southeast-1.prod.aws.tidbcloud.com` |
+| `TIDB_PORT` | `4000` |
+| `TIDB_USER` | `3oTjjLfAngfGpch.root` |
 | `TIDB_PASSWORD` | (your TiDB password) |
-| `TIDB_DATABASE` | test |
+| `TIDB_DATABASE` | `test` |
 | `IDRIVE_ACCESS_KEY` | (your IDrive access key) |
 | `IDRIVE_SECRET_KEY` | (your IDrive secret key) |
-| `IDRIVE_ENDPOINT` | k8j8.or4.idrivee2-57.com |
+| `IDRIVE_ENDPOINT` | `k8j8.or4.idrivee2-57.com` |
 
-## Testing
+## Usage
 
-1. In Render dashboard, go to your cron job
-2. Click **Trigger Run** to test manually
-3. Watch the logs in real-time
+### Check status
+```bash
+curl https://your-service.onrender.com/status
+```
+
+### Trigger manual sync
+```bash
+curl -X POST https://your-service.onrender.com/sync
+```
+
+### Monitor sync progress
+```bash
+# Keep checking status until is_running becomes false
+curl https://your-service.onrender.com/status
+```
 
 ## Logs
 
-View logs in the Render dashboard under your cron job → **Logs** tab.
+View logs in Render Dashboard → Your Service → Logs
 
-Example output:
+Example:
 ```
-2025-12-23 06:00:01 [INFO] TiDB Sync Worker Starting
+2025-12-23 06:00:00 [INFO] Scheduled sync triggered
+2025-12-23 06:00:00 [INFO] TiDB Sync Starting
 2025-12-23 06:00:01 [INFO] Connecting to TiDB Cloud...
-2025-12-23 06:00:02 [INFO] Connected successfully!
-2025-12-23 06:00:02 [INFO] Finding latest backup in dbdaily/db/categories-products/...
-2025-12-23 06:00:03 [INFO] Latest backup: 2025-12-23-05-00-01_suppliesart1_maindb_categories-products.sql.gz
+2025-12-23 06:00:01 [INFO] Connected!
+2025-12-23 06:00:02 [INFO] PHASE 1: Categories/Products
 ...
-2025-12-23 06:25:00 [INFO] SYNC COMPLETE
-2025-12-23 06:25:00 [INFO] Duration: 1499.2 seconds (25.0 minutes)
+2025-12-23 06:25:00 [INFO] SYNC COMPLETE - SUCCESS
 ```
 
-## Cost
+## Schedule
 
-- ~25 min/run × 2 runs/day × 30 days = **25 hours/month**
-- Render Starter tier: **~$1-2/month**
+The scheduler runs at:
+- **6:00 AM UTC** (1 hour after 05:00 backup)
+- **6:00 PM UTC** (1 hour after 17:00 backup)
+
+To change the schedule, modify these lines in `sync_worker.py`:
+```python
+scheduler.add_job(scheduled_sync, CronTrigger(hour=6, minute=0), ...)
+scheduler.add_job(scheduled_sync, CronTrigger(hour=18, minute=0), ...)
+```

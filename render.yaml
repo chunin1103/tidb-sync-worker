@@ -1,12 +1,12 @@
-# Render Blueprint for TiDB Sync Worker
+# Render Blueprint for TiDB Sync Worker (Web Service)
 # Deploy: https://render.com/deploy?repo=YOUR_GITHUB_REPO_URL
 
 services:
-  - type: cron
+  - type: web
     name: tidb-sync-worker
     runtime: docker
-    schedule: "0 6,18 * * *"  # 6 AM and 6 PM UTC daily
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /
     envVars:
       - key: TIDB_HOST
         value: gateway01.ap-southeast-1.prod.aws.tidbcloud.com
