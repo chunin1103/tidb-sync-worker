@@ -127,18 +127,30 @@ def get_s3_client():
 
 
 def get_latest_backup_file(prefix):
-    """List files in IDrive bucket and return the latest backup filename."""
+    """List files in IDrive bucket and return the latest backup filename.
+
+    Uses pagination to handle buckets with more than 1000 files.
+    """
     logger.info(f"Finding latest backup in {S3_BUCKET}/{prefix}...")
 
     try:
         s3 = get_s3_client()
-        response = s3.list_objects_v2(Bucket=S3_BUCKET, Prefix=prefix)
 
-        if 'Contents' not in response:
-            logger.error(f"No files found in {S3_BUCKET}/{prefix}")
-            return None
+        # Use paginator to handle >1000 files
+        paginator = s3.get_paginator('list_objects_v2')
+        pages = paginator.paginate(Bucket=S3_BUCKET, Prefix=prefix)
 
-        files = [obj['Key'] for obj in response['Contents'] if obj['Key'].endswith('.sql.gz')]
+        files = []
+        page_count = 0
+        for page in pages:
+            page_count += 1
+            if 'Contents' in page:
+                for obj in page['Contents']:
+                    if obj['Key'].endswith('.sql.gz'):
+                        files.append(obj['Key'])
+
+        logger.info(f"Scanned {page_count} page(s), found {len(files)} backup files")
+
         if not files:
             logger.error(f"No .sql.gz files found in {S3_BUCKET}/{prefix}")
             return None
