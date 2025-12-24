@@ -1,9 +1,12 @@
-# Render Blueprint for TiDB Sync Worker (Web Service)
+# Render Blueprint for TiDB Services
 # Deploy: https://render.com/deploy?repo=YOUR_GITHUB_REPO_URL
 #
-# No Docker required - uses native Python runtime with boto3
+# Services:
+# 1. tidb-sync-worker - Syncs IDrive backups to TiDB Cloud
+# 2. tidb-mcp-server  - MCP server for querying TiDB from Claude
 
 services:
+  # Sync Worker - runs scheduled syncs from IDrive to TiDB
   - type: web
     name: tidb-sync-worker
     runtime: python
@@ -29,3 +32,24 @@ services:
         sync: false  # Set manually in dashboard
       - key: IDRIVE_BUCKET
         value: dbdaily
+
+  # MCP Server - allows Claude to query the TiDB database
+  - type: web
+    name: tidb-mcp-server
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python mcp_server.py
+    healthCheckPath: /
+    envVars:
+      - key: TIDB_HOST
+        value: gateway01.ap-southeast-1.prod.aws.tidbcloud.com
+      - key: TIDB_PORT
+        value: "4000"
+      - key: TIDB_USER
+        sync: false  # Set manually in dashboard
+      - key: TIDB_PASSWORD
+        sync: false  # Set manually in dashboard (secret)
+      - key: TIDB_DATABASE
+        value: test
+      - key: MAX_QUERY_ROWS
+        value: "1000"
