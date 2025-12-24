@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
-TiDB Sync Worker - Web Service with Built-in Scheduler
+TiDB Unified Service - Sync Worker + MCP Server
 
-Runs as a Render Web Service with APScheduler to automatically sync
-IDrive e2 backups to TiDB Cloud at 6 AM and 6 PM UTC daily.
+Runs as a single Render Web Service providing:
+1. Scheduled sync from IDrive e2 backups to TiDB Cloud (6 AM / 6 PM UTC)
+2. MCP server for querying TiDB from Claude
 
 Endpoints:
-- GET /         - Health check (keeps Render happy)
-- GET /status   - Show last sync status and next scheduled run
-- POST /sync    - Trigger manual sync
-
-No Docker required - uses boto3 for S3-compatible storage access.
+- GET  /         - Health check (combined status)
+- GET  /status   - Detailed sync status and schedule
+- POST /sync     - Trigger manual sync
+- POST /mcp      - MCP endpoint for Claude
+- GET  /tools    - List available MCP tools
+- POST /query    - Direct query endpoint for testing
 """
 
 import boto3
@@ -20,9 +22,11 @@ import sys
 import os
 import io
 import re
+import json
 import logging
 import threading
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 from flask import Flask, jsonify, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -39,6 +43,33 @@ logger = logging.getLogger(__name__)
 # Flask app
 app = Flask(__name__)
 
+# =============================================================================
+# Configuration
+# =============================================================================
+
+# TiDB Configuration (shared by sync and MCP)
+TIDB_CONFIG = {
+    'host': os.environ.get('TIDB_HOST', 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com'),
+    'port': int(os.environ.get('TIDB_PORT', 4000)),
+    'user': os.environ.get('TIDB_USER', ''),
+    'password': os.environ.get('TIDB_PASSWORD', ''),
+    'database': os.environ.get('TIDB_DATABASE', 'test'),
+    'ssl': {'ssl': {'ca': None}},
+    'autocommit': True,
+    'charset': 'utf8mb4'
+}
+
+# IDrive/S3 Configuration
+IDRIVE_ACCESS_KEY = os.environ.get('IDRIVE_ACCESS_KEY', '')
+IDRIVE_SECRET_KEY = os.environ.get('IDRIVE_SECRET_KEY', '')
+IDRIVE_ENDPOINT = os.environ.get('IDRIVE_ENDPOINT', '')
+S3_BUCKET = os.environ.get('IDRIVE_BUCKET', 'dbdaily')
+CATEGORIES_PRODUCTS_PREFIX = 'db/categories-products/'
+ORDERS_PREFIX = 'db/orders/'
+
+# MCP Configuration
+MAX_ROWS = int(os.environ.get('MAX_QUERY_ROWS', 1000))
+
 # Sync state tracking
 sync_state = {
     'last_run': None,
@@ -51,31 +82,38 @@ sync_state = {
 }
 sync_lock = threading.Lock()
 
-# Environment variables
-TIDB_CONFIG = {
-    'host': os.environ.get('TIDB_HOST', 'gateway01.ap-southeast-1.prod.aws.tidbcloud.com'),
-    'port': int(os.environ.get('TIDB_PORT', 4000)),
-    'user': os.environ.get('TIDB_USER', ''),
-    'password': os.environ.get('TIDB_PASSWORD', ''),
-    'database': os.environ.get('TIDB_DATABASE', 'test'),
-    'ssl': {'ssl': {'ca': None}},
-    'autocommit': True,
-    'charset': 'utf8mb4',
-    'client_flag': CLIENT.MULTI_STATEMENTS
-}
 
-IDRIVE_ACCESS_KEY = os.environ.get('IDRIVE_ACCESS_KEY', '')
-IDRIVE_SECRET_KEY = os.environ.get('IDRIVE_SECRET_KEY', '')
-IDRIVE_ENDPOINT = os.environ.get('IDRIVE_ENDPOINT', '')
+# =============================================================================
+# Database Helpers
+# =============================================================================
 
-# S3 bucket and paths
-S3_BUCKET = os.environ.get('IDRIVE_BUCKET', 'dbdaily')
-CATEGORIES_PRODUCTS_PREFIX = 'db/categories-products/'
-ORDERS_PREFIX = 'db/orders/'
+def get_sync_connection():
+    """Get connection for sync operations (with MULTI_STATEMENTS)."""
+    config = TIDB_CONFIG.copy()
+    config['client_flag'] = CLIENT.MULTI_STATEMENTS
+    return pymysql.connect(**config)
+
+
+def get_query_connection():
+    """Get connection for MCP queries (with DictCursor)."""
+    config = TIDB_CONFIG.copy()
+    config['cursorclass'] = pymysql.cursors.DictCursor
+    return pymysql.connect(**config)
+
+
+def json_serial(obj):
+    """JSON serializer for objects not serializable by default."""
+    if isinstance(obj, (datetime, date)):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, bytes):
+        return obj.decode('utf-8', errors='replace')
+    raise TypeError(f"Type {type(obj)} not serializable")
 
 
 # =============================================================================
-# Core Sync Functions
+# Sync Worker Functions
 # =============================================================================
 
 def get_s3_client():
@@ -100,7 +138,6 @@ def get_latest_backup_file(prefix):
             logger.error(f"No files found in {S3_BUCKET}/{prefix}")
             return None
 
-        # Get all .sql.gz files and sort by key (which includes timestamp)
         files = [obj['Key'] for obj in response['Contents'] if obj['Key'].endswith('.sql.gz')]
         if not files:
             logger.error(f"No .sql.gz files found in {S3_BUCKET}/{prefix}")
@@ -110,7 +147,7 @@ def get_latest_backup_file(prefix):
         latest_key = files[-1]
         latest_filename = latest_key.split('/')[-1]
         logger.info(f"Latest backup: {latest_filename}")
-        return latest_key  # Return full key for S3 get_object
+        return latest_key
 
     except Exception as e:
         logger.error(f"Failed to list S3 objects: {e}")
@@ -184,11 +221,9 @@ def stream_and_execute(s3_key, conn, cursor, dataset_name):
     logger.info(f"Starting {dataset_name} sync from {filename}")
     sync_state['current_phase'] = dataset_name
 
-    # Stream directly from S3 using boto3
     s3 = get_s3_client()
     response = s3.get_object(Bucket=S3_BUCKET, Key=s3_key)
 
-    # Decompress the gzipped stream
     decompressor = gzip.GzipFile(fileobj=response['Body'])
     text_stream = io.TextIOWrapper(decompressor, encoding='utf-8', errors='replace')
 
@@ -273,9 +308,8 @@ def run_sync():
     status = 'success'
 
     try:
-        # Connect to TiDB
         logger.info("Connecting to TiDB Cloud...")
-        conn = pymysql.connect(**TIDB_CONFIG)
+        conn = get_sync_connection()
         cursor = conn.cursor()
         logger.info("Connected!")
 
@@ -297,7 +331,6 @@ def run_sync():
             total_statements += stmts
             total_errors += errs
 
-        # Summary
         cursor.execute("SHOW TABLES")
         tables = cursor.fetchall()
         logger.info(f"Total tables: {len(tables)}")
@@ -313,7 +346,6 @@ def run_sync():
     end_time = datetime.utcnow()
     duration = (end_time - start_time).total_seconds()
 
-    # Update state
     with sync_lock:
         sync_state['last_run'] = end_time.isoformat() + 'Z'
         sync_state['last_status'] = status
@@ -337,7 +369,175 @@ def run_sync():
 
 
 # =============================================================================
-# Flask Routes
+# MCP Server Functions
+# =============================================================================
+
+MCP_TOOLS = [
+    {
+        "name": "query",
+        "description": "Execute a SELECT query on the TiDB database. Only read-only queries are allowed.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "sql": {
+                    "type": "string",
+                    "description": "The SQL SELECT query to execute"
+                }
+            },
+            "required": ["sql"]
+        }
+    },
+    {
+        "name": "list_tables",
+        "description": "List all tables in the database",
+        "inputSchema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
+        "name": "describe_table",
+        "description": "Get the schema/structure of a specific table",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "table_name": {
+                    "type": "string",
+                    "description": "Name of the table to describe"
+                }
+            },
+            "required": ["table_name"]
+        }
+    },
+    {
+        "name": "recent_orders",
+        "description": "Get the most recent orders from the database",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "description": "Number of orders to return (default: 10, max: 100)",
+                    "default": 10
+                }
+            }
+        }
+    },
+    {
+        "name": "order_details",
+        "description": "Get full details of a specific order including products",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "order_id": {
+                    "type": "integer",
+                    "description": "The order ID to look up"
+                }
+            },
+            "required": ["order_id"]
+        }
+    }
+]
+
+
+def execute_query(sql, params=None):
+    """Execute a SQL query and return results."""
+    sql_upper = sql.strip().upper()
+    if not sql_upper.startswith('SELECT') and not sql_upper.startswith('SHOW') and not sql_upper.startswith('DESCRIBE'):
+        return {'error': 'Only SELECT, SHOW, and DESCRIBE queries are allowed'}
+
+    try:
+        conn = get_query_connection()
+        cursor = conn.cursor()
+        cursor.execute(sql, params)
+        rows = cursor.fetchmany(MAX_ROWS)
+
+        has_more = cursor.fetchone() is not None
+
+        cursor.close()
+        conn.close()
+
+        return {
+            'rows': rows,
+            'row_count': len(rows),
+            'has_more': has_more,
+            'max_rows': MAX_ROWS
+        }
+    except pymysql.Error as e:
+        return {'error': f"Database error: {e}"}
+    except Exception as e:
+        return {'error': f"Error: {e}"}
+
+
+def handle_tool_call(tool_name, arguments):
+    """Handle a tool call and return the result."""
+
+    if tool_name == "query":
+        sql = arguments.get("sql", "")
+        result = execute_query(sql)
+        return json.dumps(result, default=json_serial)
+
+    elif tool_name == "list_tables":
+        result = execute_query("SHOW TABLES")
+        if 'rows' in result:
+            tables = [list(row.values())[0] for row in result['rows']]
+            return json.dumps({'tables': tables, 'count': len(tables)})
+        return json.dumps(result)
+
+    elif tool_name == "describe_table":
+        table_name = arguments.get("table_name", "")
+        if not table_name.replace('_', '').isalnum():
+            return json.dumps({'error': 'Invalid table name'})
+        result = execute_query(f"DESCRIBE `{table_name}`")
+        return json.dumps(result, default=json_serial)
+
+    elif tool_name == "recent_orders":
+        limit = min(arguments.get("limit", 10), 100)
+        sql = f"""
+            SELECT orders_id, customers_name, customers_email_address,
+                   date_purchased, orders_status, billing_city, billing_state
+            FROM orders
+            ORDER BY date_purchased DESC
+            LIMIT {limit}
+        """
+        result = execute_query(sql)
+        return json.dumps(result, default=json_serial)
+
+    elif tool_name == "order_details":
+        order_id = arguments.get("order_id")
+        if not order_id:
+            return json.dumps({'error': 'order_id is required'})
+
+        order_result = execute_query(
+            "SELECT * FROM orders WHERE orders_id = %s",
+            (order_id,)
+        )
+
+        products_result = execute_query(
+            """SELECT op.*, p.products_model
+               FROM orders_products op
+               LEFT JOIN products p ON op.products_id = p.products_id
+               WHERE op.orders_id = %s""",
+            (order_id,)
+        )
+
+        totals_result = execute_query(
+            "SELECT * FROM orders_total WHERE orders_id = %s ORDER BY sort_order",
+            (order_id,)
+        )
+
+        return json.dumps({
+            'order': order_result.get('rows', [{}])[0] if order_result.get('rows') else None,
+            'products': products_result.get('rows', []),
+            'totals': totals_result.get('rows', [])
+        }, default=json_serial)
+
+    else:
+        return json.dumps({'error': f'Unknown tool: {tool_name}'})
+
+
+# =============================================================================
+# Flask Routes - Combined
 # =============================================================================
 
 @app.route('/')
@@ -345,9 +545,14 @@ def health():
     """Health check endpoint for Render."""
     return jsonify({
         'status': 'healthy',
-        'service': 'tidb-sync-worker',
+        'service': 'tidb-unified',
+        'features': {
+            'sync_worker': True,
+            'mcp_server': True
+        },
         'sync_status': sync_state['last_status'],
-        'is_running': sync_state['is_running']
+        'is_syncing': sync_state['is_running'],
+        'database': TIDB_CONFIG['database']
     })
 
 
@@ -383,7 +588,6 @@ def trigger_sync():
             'current_phase': sync_state['current_phase']
         }), 409
 
-    # Run sync in background thread
     thread = threading.Thread(target=run_sync)
     thread.start()
 
@@ -403,16 +607,101 @@ def sync_info():
     })
 
 
+@app.route('/mcp', methods=['POST'])
+def mcp_endpoint():
+    """Main MCP endpoint - handles JSON-RPC style requests."""
+    try:
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'error': 'No JSON body provided'}), 400
+
+        method = data.get('method')
+        params = data.get('params', {})
+        request_id = data.get('id')
+
+        if method == 'initialize':
+            response = {
+                'protocolVersion': '2024-11-05',
+                'capabilities': {
+                    'tools': {}
+                },
+                'serverInfo': {
+                    'name': 'tidb-mcp-server',
+                    'version': '1.0.0'
+                }
+            }
+
+        elif method == 'tools/list':
+            response = {'tools': MCP_TOOLS}
+
+        elif method == 'tools/call':
+            tool_name = params.get('name')
+            arguments = params.get('arguments', {})
+
+            result = handle_tool_call(tool_name, arguments)
+
+            response = {
+                'content': [
+                    {
+                        'type': 'text',
+                        'text': result
+                    }
+                ]
+            }
+
+        elif method == 'ping':
+            response = {}
+
+        else:
+            return jsonify({
+                'jsonrpc': '2.0',
+                'error': {'code': -32601, 'message': f'Method not found: {method}'},
+                'id': request_id
+            }), 404
+
+        return jsonify({
+            'jsonrpc': '2.0',
+            'result': response,
+            'id': request_id
+        })
+
+    except Exception as e:
+        logger.error(f"MCP error: {e}")
+        return jsonify({
+            'jsonrpc': '2.0',
+            'error': {'code': -32603, 'message': str(e)},
+            'id': request.get_json().get('id') if request.get_json() else None
+        }), 500
+
+
+@app.route('/tools', methods=['GET'])
+def list_tools():
+    """List available MCP tools."""
+    return jsonify({'tools': MCP_TOOLS})
+
+
+@app.route('/query', methods=['POST'])
+def direct_query():
+    """Direct query endpoint for testing."""
+    data = request.get_json()
+    sql = data.get('sql', '')
+    result = execute_query(sql)
+    return jsonify(result)
+
+
 # =============================================================================
 # Scheduler Setup
 # =============================================================================
 
 scheduler = BackgroundScheduler()
 
+
 def scheduled_sync():
     """Wrapper for scheduled sync runs."""
     logger.info("Scheduled sync triggered")
     run_sync()
+
 
 # Schedule at 6 AM and 6 PM UTC
 scheduler.add_job(
@@ -434,22 +723,47 @@ scheduler.add_job(
 # =============================================================================
 
 if __name__ == '__main__':
-    # Validate environment
-    required_vars = ['TIDB_USER', 'TIDB_PASSWORD', 'IDRIVE_ACCESS_KEY', 'IDRIVE_SECRET_KEY', 'IDRIVE_ENDPOINT']
-    missing = [v for v in required_vars if not os.environ.get(v)]
-    if missing:
-        logger.error(f"Missing environment variables: {', '.join(missing)}")
+    # Validate environment for sync
+    sync_vars = ['TIDB_USER', 'TIDB_PASSWORD', 'IDRIVE_ACCESS_KEY', 'IDRIVE_SECRET_KEY', 'IDRIVE_ENDPOINT']
+    missing_sync = [v for v in sync_vars if not os.environ.get(v)]
+
+    # Minimum required for MCP (TiDB only)
+    mcp_vars = ['TIDB_USER', 'TIDB_PASSWORD']
+    missing_mcp = [v for v in mcp_vars if not os.environ.get(v)]
+
+    if missing_mcp:
+        logger.error(f"Missing required environment variables: {', '.join(missing_mcp)}")
         sys.exit(1)
 
-    # Start scheduler
-    scheduler.start()
-    logger.info("Scheduler started - syncs at 6 AM and 6 PM UTC")
+    if missing_sync:
+        logger.warning(f"Sync disabled - missing: {', '.join(missing_sync)}")
+        logger.info("MCP server will run, but scheduled syncs will fail")
+    else:
+        # Start scheduler only if sync is fully configured
+        scheduler.start()
+        logger.info("Scheduler started - syncs at 6 AM and 6 PM UTC")
+        for job in scheduler.get_jobs():
+            logger.info(f"  {job.name}: next run at {job.next_run_time}")
 
-    # Show next run times
-    for job in scheduler.get_jobs():
-        logger.info(f"  {job.name}: next run at {job.next_run_time}")
+    # Test TiDB connection
+    try:
+        conn = get_query_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.close()
+        conn.close()
+        logger.info(f"Connected to TiDB: {TIDB_CONFIG['host']}/{TIDB_CONFIG['database']}")
+    except Exception as e:
+        logger.error(f"Failed to connect to TiDB: {e}")
+        sys.exit(1)
 
     # Start Flask
     port = int(os.environ.get('PORT', 10000))
-    logger.info(f"Starting web server on port {port}")
+    logger.info(f"Starting TiDB Unified Service on port {port}")
+    logger.info(f"Endpoints:")
+    logger.info(f"  Health:     http://localhost:{port}/")
+    logger.info(f"  Status:     http://localhost:{port}/status")
+    logger.info(f"  Sync:       http://localhost:{port}/sync")
+    logger.info(f"  MCP:        http://localhost:{port}/mcp")
+    logger.info(f"  Tools:      http://localhost:{port}/tools")
     app.run(host='0.0.0.0', port=port)
