@@ -424,6 +424,14 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "today_orders",
+        "description": "Get all orders placed today with count and summary",
+        "inputSchema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
         "name": "order_details",
         "description": "Get full details of a specific order including products",
         "inputSchema": {
@@ -502,6 +510,30 @@ def handle_tool_call(tool_name, arguments):
         """
         result = execute_query(sql)
         return json.dumps(result, default=json_serial)
+
+    elif tool_name == "today_orders":
+        # Get count and list of today's orders
+        count_sql = """
+            SELECT COUNT(*) as order_count
+            FROM orders
+            WHERE DATE(date_purchased) = CURDATE()
+        """
+        count_result = execute_query(count_sql)
+
+        orders_sql = """
+            SELECT orders_id, customers_name, customers_email_address,
+                   date_purchased, orders_status, billing_city, billing_state
+            FROM orders
+            WHERE DATE(date_purchased) = CURDATE()
+            ORDER BY date_purchased DESC
+        """
+        orders_result = execute_query(orders_sql)
+
+        return json.dumps({
+            'today': datetime.now().strftime('%Y-%m-%d'),
+            'order_count': count_result.get('rows', [{}])[0].get('order_count', 0) if count_result.get('rows') else 0,
+            'orders': orders_result.get('rows', [])
+        }, default=json_serial)
 
     elif tool_name == "order_details":
         order_id = arguments.get("order_id")
@@ -620,6 +652,8 @@ def mcp_endpoint():
         params = data.get('params', {})
         request_id = data.get('id')
 
+        logger.info(f"MCP request: method={method}, id={request_id}")
+
         if method == 'initialize':
             response = {
                 'protocolVersion': '2024-11-05',
@@ -632,12 +666,21 @@ def mcp_endpoint():
                 }
             }
 
+        elif method == 'notifications/initialized' or method == 'initialized':
+            # Notification - no response needed, return empty success
+            return jsonify({
+                'jsonrpc': '2.0',
+                'result': {},
+                'id': request_id
+            })
+
         elif method == 'tools/list':
             response = {'tools': MCP_TOOLS}
 
         elif method == 'tools/call':
             tool_name = params.get('name')
             arguments = params.get('arguments', {})
+            logger.info(f"Tool call: {tool_name} with args: {arguments}")
 
             result = handle_tool_call(tool_name, arguments)
 
@@ -653,12 +696,22 @@ def mcp_endpoint():
         elif method == 'ping':
             response = {}
 
+        elif method == 'resources/list':
+            # No resources, return empty list
+            response = {'resources': []}
+
+        elif method == 'prompts/list':
+            # No prompts, return empty list
+            response = {'prompts': []}
+
         else:
+            # Return error but with 200 status (JSON-RPC errors shouldn't be HTTP errors)
+            logger.warning(f"Unknown MCP method: {method}")
             return jsonify({
                 'jsonrpc': '2.0',
                 'error': {'code': -32601, 'message': f'Method not found: {method}'},
                 'id': request_id
-            }), 404
+            })
 
         return jsonify({
             'jsonrpc': '2.0',
