@@ -1,0 +1,352 @@
+"""
+Autonomous Agents - Scheduled and Event-Driven Agent Execution
+Runs agents automatically on schedules or triggers using Celery
+"""
+
+import logging
+from datetime import datetime
+from celery_app import celery_app
+from agent_backend import execute_agent
+from database import (
+    save_agent_run,
+    complete_agent_run,
+    save_agent_report,
+    USE_DATABASE
+)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# SCHEDULED AGENT JOBS
+# ============================================================================
+
+@celery_app.task(name='autonomous_agents.morning_intelligence_report')
+def morning_intelligence_report():
+    """
+    Runs daily at 7:00 AM
+    Generates comprehensive morning intelligence report
+    """
+    logger.info("🌅 Starting Morning Intelligence Report...")
+
+    # Save agent run to database
+    run_id = None
+    if USE_DATABASE:
+        run_id = save_agent_run(
+            agent_type='inventory_intelligence',
+            run_type='scheduled',
+            trigger='cron:daily_7am'
+        )
+
+    try:
+        # Generate unique session ID for this report
+        session_id = f"auto_morning_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        # Execute agent with specific morning report prompt
+        prompt = """Generate a comprehensive morning intelligence report with the following sections:
+
+1. **CRITICAL ALERTS** (Products needing immediate attention)
+   - Products at ZERO inventory
+   - Products below 30 days coverage
+   - Urgent reorder needs
+
+2. **TODAY'S PRIORITIES** (Recommended actions for today)
+   - Top 3-5 products to cut today
+   - Specific cutting recommendations with quantities
+   - Expected inventory levels after cuts
+
+3. **INVENTORY HEALTH SUMMARY**
+   - Total products below 91-day threshold
+   - Products at risk (30-91 days)
+   - Overstock situations (>3 years)
+
+4. **UPCOMING DEADLINES**
+   - Seasonal product deadlines (Holly Berry Red, Tekta)
+   - Next Bullseye order window
+   - Important dates this week
+
+Format the report with clear sections, bullet points, and actionable items."""
+
+        # Collect agent response
+        report_parts = []
+        for chunk in execute_agent('inventory_intelligence', prompt, session_id):
+            report_parts.append(chunk)
+
+        full_report = "".join(report_parts)
+
+        # Save report to database
+        if USE_DATABASE and run_id:
+            save_agent_report(
+                agent_run_id=run_id,
+                agent_type='inventory_intelligence',
+                report_type='morning_intelligence',
+                title=f"Morning Intelligence Report - {datetime.now().strftime('%B %d, %Y')}",
+                content=full_report
+            )
+
+            # Mark run as completed
+            summary = full_report[:200] + "..." if len(full_report) > 200 else full_report
+            complete_agent_run(
+                run_id=run_id,
+                status='completed',
+                output_summary=summary
+            )
+
+        logger.info(f"✅ Morning Intelligence Report completed! ({len(full_report)} chars)")
+
+        # TODO: Send notifications (Slack, Email)
+        # send_slack_notification("#inventory-alerts", full_report)
+        # send_email("team@artglasssupplies.com", "Morning Report", full_report)
+
+    except Exception as e:
+        logger.error(f"❌ Morning Intelligence Report failed: {str(e)}")
+
+        if USE_DATABASE and run_id:
+            complete_agent_run(
+                run_id=run_id,
+                status='failed',
+                error_message=str(e)
+            )
+
+
+@celery_app.task(name='autonomous_agents.inventory_health_check')
+def inventory_health_check():
+    """
+    Runs every 6 hours
+    Quick check for critical inventory issues
+    """
+    logger.info("🔍 Running Inventory Health Check...")
+
+    run_id = None
+    if USE_DATABASE:
+        run_id = save_agent_run(
+            agent_type='inventory_intelligence',
+            run_type='scheduled',
+            trigger='interval:6_hours'
+        )
+
+    try:
+        session_id = f"auto_health_check_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        prompt = """Perform a quick inventory health check and report:
+
+1. Any products at ZERO inventory (CRITICAL)
+2. Any products that dropped below 30 days since last check
+3. Any unusual sales spikes or anomalies
+
+Keep it brief - only report issues that need immediate attention."""
+
+        report_parts = []
+        for chunk in execute_agent('inventory_intelligence', prompt, session_id):
+            report_parts.append(chunk)
+
+        full_report = "".join(report_parts)
+
+        if USE_DATABASE and run_id:
+            save_agent_report(
+                agent_run_id=run_id,
+                agent_type='inventory_intelligence',
+                report_type='health_check',
+                title=f"Health Check - {datetime.now().strftime('%I:%M %p')}",
+                content=full_report
+            )
+
+            complete_agent_run(
+                run_id=run_id,
+                status='completed',
+                output_summary=full_report[:200]
+            )
+
+        logger.info(f"✅ Health Check completed!")
+
+        # TODO: Send critical alerts only if issues found
+        # if "ZERO inventory" in full_report or "CRITICAL" in full_report:
+        #     send_sms_alert(full_report)
+
+    except Exception as e:
+        logger.error(f"❌ Health Check failed: {str(e)}")
+        if USE_DATABASE and run_id:
+            complete_agent_run(run_id=run_id, status='failed', error_message=str(e))
+
+
+@celery_app.task(name='autonomous_agents.weekly_summary_report')
+def weekly_summary_report():
+    """
+    Runs every Monday at 8:00 AM
+    Generates weekly summary and upcoming week preview
+    """
+    logger.info("📊 Starting Weekly Summary Report...")
+
+    run_id = None
+    if USE_DATABASE:
+        run_id = save_agent_run(
+            agent_type='inventory_intelligence',
+            run_type='scheduled',
+            trigger='cron:monday_8am'
+        )
+
+    try:
+        session_id = f"auto_weekly_report_{datetime.now().strftime('%Y%m%d')}"
+
+        prompt = """Generate a weekly summary report:
+
+1. **LAST WEEK RECAP**
+   - Key inventory changes
+   - Products that were cut
+   - Any stockout events
+
+2. **THIS WEEK PRIORITIES**
+   - Top priorities for this week
+   - Recommended cutting schedule
+   - Products to monitor
+
+3. **UPCOMING EVENTS**
+   - Seasonal deadlines approaching
+   - Bullseye order timing
+   - Important dates
+
+Provide strategic insights and recommendations."""
+
+        report_parts = []
+        for chunk in execute_agent('inventory_intelligence', prompt, session_id):
+            report_parts.append(chunk)
+
+        full_report = "".join(report_parts)
+
+        if USE_DATABASE and run_id:
+            save_agent_report(
+                agent_run_id=run_id,
+                agent_type='inventory_intelligence',
+                report_type='weekly_summary',
+                title=f"Weekly Summary - Week of {datetime.now().strftime('%B %d, %Y')}",
+                content=full_report
+            )
+
+            complete_agent_run(
+                run_id=run_id,
+                status='completed',
+                output_summary=full_report[:200]
+            )
+
+        logger.info(f"✅ Weekly Summary completed!")
+
+    except Exception as e:
+        logger.error(f"❌ Weekly Summary failed: {str(e)}")
+        if USE_DATABASE and run_id:
+            complete_agent_run(run_id=run_id, status='failed', error_message=str(e))
+
+
+# ============================================================================
+# MANUAL TRIGGER FUNCTIONS
+# ============================================================================
+
+def run_agent_now(agent_type: str, prompt: str):
+    """
+    Manually trigger an agent run
+    Useful for testing or on-demand reports
+    """
+    logger.info(f"▶️  Manual agent run: {agent_type}")
+
+    run_id = None
+    if USE_DATABASE:
+        run_id = save_agent_run(
+            agent_type=agent_type,
+            run_type='manual',
+            trigger='manual:user_triggered'
+        )
+
+    try:
+        session_id = f"manual_{agent_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+
+        report_parts = []
+        for chunk in execute_agent(agent_type, prompt, session_id):
+            report_parts.append(chunk)
+
+        full_report = "".join(report_parts)
+
+        if USE_DATABASE and run_id:
+            save_agent_report(
+                agent_run_id=run_id,
+                agent_type=agent_type,
+                report_type='manual',
+                title=f"Manual Report - {datetime.now().strftime('%I:%M %p')}",
+                content=full_report
+            )
+
+            complete_agent_run(
+                run_id=run_id,
+                status='completed',
+                output_summary=full_report[:200]
+            )
+
+        logger.info(f"✅ Manual run completed!")
+        return full_report
+
+    except Exception as e:
+        logger.error(f"❌ Manual run failed: {str(e)}")
+        if USE_DATABASE and run_id:
+            complete_agent_run(run_id=run_id, status='failed', error_message=str(e))
+        raise
+
+
+# ============================================================================
+# CELERY TASK MANAGEMENT
+# ============================================================================
+
+def trigger_task_now(task_name: str):
+    """
+    Manually trigger a Celery task immediately
+
+    Args:
+        task_name: Name of the task (e.g., 'morning_intelligence_report')
+
+    Returns:
+        Celery AsyncResult object
+    """
+    task_map = {
+        'morning_intelligence_report': morning_intelligence_report,
+        'inventory_health_check': inventory_health_check,
+        'weekly_summary_report': weekly_summary_report
+    }
+
+    if task_name in task_map:
+        logger.info(f"🚀 Manually triggering task: {task_name}")
+        return task_map[task_name].apply_async()
+    else:
+        logger.error(f"❌ Unknown task: {task_name}")
+        return None
+
+
+def get_task_status(task_id: str):
+    """
+    Check the status of a Celery task
+
+    Args:
+        task_id: Celery task ID
+
+    Returns:
+        Task state and result
+    """
+    from celery.result import AsyncResult
+    result = AsyncResult(task_id, app=celery_app)
+
+    return {
+        'task_id': task_id,
+        'state': result.state,
+        'ready': result.ready(),
+        'successful': result.successful() if result.ready() else None,
+        'result': result.result if result.ready() else None
+    }
+
+
+# ============================================================================
+# TESTING / DEVELOPMENT
+# ============================================================================
+
+if __name__ == "__main__":
+    # For testing: Run morning report immediately
+    logger.info("🧪 TESTING MODE: Running morning report now...")
+    morning_intelligence_report()
+    logger.info("✅ Test completed!")

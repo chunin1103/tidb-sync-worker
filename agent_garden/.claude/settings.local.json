@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "tidb-mcp"
+  ],
+  "enableAllProjectMcpServers": true
+}

@@ -1,24 +1,32 @@
-# Render Blueprint for TiDB Unified Service
+# Render Blueprint for Unified TiDB + Agent Garden Service
 # Deploy: https://render.com/deploy?repo=YOUR_GITHUB_REPO_URL
 #
-# Single service providing:
-# 1. Sync Worker - scheduled syncs from IDrive to TiDB (6 AM / 6 PM UTC)
-# 2. MCP Server - query TiDB from Claude
+# Single unified service providing:
+# 1. TiDB MCP Server - query TiDB from Claude (root level endpoints)
+# 2. Sync Worker - scheduled syncs from IDrive to TiDB
+# 3. Agent Garden - autonomous agent management system (/AgentGarden)
 #
 # Endpoints:
-# - GET  /         - Health check
-# - GET  /status   - Sync status and schedule
-# - POST /sync     - Trigger manual sync
-# - POST /mcp      - MCP endpoint for Claude
-# - GET  /tools    - List MCP tools
-# - POST /query    - Direct query (testing)
+# Root Level (TiDB/Sync):
+# - GET  /              - Unified health check
+# - POST /mcp           - MCP endpoint for Claude
+# - GET  /tools         - List MCP tools
+# - POST /query         - Direct query (testing)
+# - GET  /status        - Sync status and schedule
+# - POST /sync          - Trigger manual sync
+#
+# Agent Garden (/AgentGarden):
+# - GET  /AgentGarden/                - Agent Garden dashboard UI
+# - POST /AgentGarden/execute_agent   - Execute agent with SSE streaming
+# - GET  /AgentGarden/sessions        - Get active sessions
+# - And 30+ more Agent Garden endpoints...
 
 services:
   - type: web
-    name: tidb-unified
+    name: tidb-agent-garden-unified
     runtime: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python sync_worker.py
+    startCommand: python unified_app.py
     healthCheckPath: /
     envVars:
       # TiDB Configuration
@@ -44,3 +52,10 @@ services:
       # MCP Configuration
       - key: MAX_QUERY_ROWS
         value: "1000"
+      # Agent Garden Configuration
+      - key: GOOGLE_API_KEY
+        sync: false  # Set manually in dashboard (for AI features)
+      - key: REDIS_URL
+        sync: false  # Optional: For Celery background tasks
+      - key: FLASK_DEBUG
+        value: "False"

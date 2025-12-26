@@ -1,0 +1,30 @@
+[2025-12-22 16:28:33,472: WARNING/MainProcess] Secure redis scheme specified (rediss) with no ssl options, defaulting to insecure SSL behaviour.
+[2025-12-22 16:28:33,476: WARNING/MainProcess] Secure redis scheme specified (rediss) with no ssl options, defaulting to insecure SSL behaviour.
+[2025-12-22 16:28:33,491: WARNING/MainProcess] Secure redis scheme specified (rediss) with no ssl options, defaulting to insecure SSL behaviour.
+[2025-12-22 16:28:33,495: WARNING/MainProcess] Secure redis scheme specified (rediss) with no ssl options, defaulting to insecure SSL behaviour.
+[2025-12-22 16:28:33,495: WARNING/MainProcess] Secure redis scheme specified (rediss) with no ssl options, defaulting to insecure SSL behaviour.
+[2025-12-22 16:28:33,511: CRITICAL/MainProcess] Unrecoverable error: ValueError('\nA rediss:// URL must have parameter ssl_cert_reqs and this must be set to CERT_REQUIRED, CERT_OPTIONAL, or CERT_NONE\n')
+Traceback (most recent call last):
+  File "/Users/vusmac/.pyenv/versions/3.12.12/lib/python3.12/site-packages/celery/worker/worker.py", line 203, in start
+    self.blueprint.start(self)
+  File "/Users/vusmac/.pyenv/versions/3.12.12/lib/python3.12/site-packages/celery/bootsteps.py", line 112, in start
+    self.on_start()
+  File "/Users/vusmac/.pyenv/versions/3.12.12/lib/python3.12/site-packages/celery/apps/worker.py", line 136, in on_start
+    self.emit_banner()
+  File "/Users/vusmac/.pyenv/versions/3.12.12/lib/python3.12/site-packages/celery/apps/worker.py", line 170, in emit_banner
+    ' \n', self.startup_info(artlines=not use_image))),
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/vusmac/.pyenv/versions/3.12.12/lib/python3.12/site-packages/celery/apps/worker.py", line 232, in startup_info
+    results=self.app.backend.as_uri(),
+            ^^^^^^^^^^^^^^^^
+  File "/Users/vusmac/.pyenv/versions/3.12.12/lib/python3.12/site-packages/celery/app/base.py", line 1452, in backend
+    self._backend = self._get_backend()
+                    ^^^^^^^^^^^^^^^^^^^
+  File "/Users/vusmac/.pyenv/versions/3.12.12/lib/python3.12/site-packages/celery/app/base.py", line 1120, in _get_backend
+    return backend(app=self, url=url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/vusmac/.pyenv/versions/3.12.12/lib/python3.12/site-packages/celery/backends/redis.py", line 311, in __init__
+    raise ValueError(E_REDIS_SSL_CERT_REQS_MISSING_INVALID)
+ValueError: 
+A rediss:// URL must have parameter ssl_cert_reqs and this must be set to CERT_REQUIRED, CERT_OPTIONAL, or CERT_NONE
+

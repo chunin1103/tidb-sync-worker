@@ -1,0 +1,148 @@
+"""
+Example New Agent - Template for Creating New Autonomous Agents
+Copy this file and customize it for your new agent
+
+USAGE:
+1. Copy this file: cp example_new_agent.py.template my_agent.py
+2. Customize the agent_type, prompts, and schedules
+3. Import in __init__.py: from autonomous_agents import my_agent
+4. Add schedule in database or use Flask admin UI
+5. Restart Celery worker and beat
+"""
+
+from datetime import datetime
+from celery_app import celery_app
+from autonomous_agents.base import run_autonomous_agent, logger
+
+
+# ============================================================================
+# EXAMPLE TASK 1: Daily Report
+# ============================================================================
+
+@celery_app.task(name='autonomous_agents.my_daily_report')
+def my_daily_report():
+    """
+    Customize: Change schedule, prompt, and report details
+    Example: Runs daily at 9:00 AM
+    """
+    logger.info("📊 Starting My Daily Report...")
+
+    # Customize your prompt
+    prompt = """Generate a daily report with:
+    1. Summary of key metrics
+    2. Important events today
+    3. Action items
+
+    Keep it concise and actionable."""
+
+    try:
+        run_autonomous_agent(
+            agent_type='my_agent_type',  # Customize: Your agent type
+            prompt=prompt,
+            run_type='scheduled',
+            trigger='cron:daily_9am',  # Customize: Match your schedule
+            report_type='daily_report',  # Customize: Report type
+            report_title=f"Daily Report - {datetime.now().strftime('%B %d, %Y')}"
+        )
+    except Exception as e:
+        logger.error(f"❌ My Daily Report failed: {str(e)}")
+        raise
+
+
+# ============================================================================
+# EXAMPLE TASK 2: Periodic Check
+# ============================================================================
+
+@celery_app.task(name='autonomous_agents.my_periodic_check')
+def my_periodic_check():
+    """
+    Customize: Change interval and check logic
+    Example: Runs every 2 hours
+    """
+    logger.info("🔍 Running My Periodic Check...")
+
+    prompt = """Perform a quick check and report:
+    1. Any critical issues
+    2. Status of key systems
+    3. Alerts that need attention
+
+    Be brief - only report problems."""
+
+    try:
+        run_autonomous_agent(
+            agent_type='my_agent_type',  # Customize: Your agent type
+            prompt=prompt,
+            run_type='scheduled',
+            trigger='interval:2_hours',  # Customize: Match your schedule
+            report_type='periodic_check',  # Customize: Report type
+            report_title=f"Periodic Check - {datetime.now().strftime('%I:%M %p')}"
+        )
+    except Exception as e:
+        logger.error(f"❌ My Periodic Check failed: {str(e)}")
+        raise
+
+
+# ============================================================================
+# EXAMPLE TASK 3: Weekly Summary
+# ============================================================================
+
+@celery_app.task(name='autonomous_agents.my_weekly_summary')
+def my_weekly_summary():
+    """
+    Customize: Change schedule and summary details
+    Example: Runs every Friday at 5:00 PM
+    """
+    logger.info("📈 Starting My Weekly Summary...")
+
+    prompt = """Generate a weekly summary:
+    1. Highlights from this week
+    2. Key metrics and trends
+    3. Plans for next week
+
+    Provide strategic insights."""
+
+    try:
+        run_autonomous_agent(
+            agent_type='my_agent_type',  # Customize: Your agent type
+            prompt=prompt,
+            run_type='scheduled',
+            trigger='cron:friday_5pm',  # Customize: Match your schedule
+            report_type='weekly_summary',  # Customize: Report type
+            report_title=f"Weekly Summary - Week of {datetime.now().strftime('%B %d, %Y')}"
+        )
+    except Exception as e:
+        logger.error(f"❌ My Weekly Summary failed: {str(e)}")
+        raise
+
+
+# ============================================================================
+# ADDITIONAL NOTES
+# ============================================================================
+
+"""
+CUSTOMIZATION CHECKLIST:
+[ ] Change file name from example_new_agent.py.template to your_agent.py
+[ ] Update agent_type throughout (e.g., 'sales_analytics', 'customer_support')
+[ ] Customize prompts for your use case
+[ ] Update task names (e.g., autonomous_agents.sales_daily_report)
+[ ] Update triggers to match your schedules
+[ ] Update report types and titles
+[ ] Import in __init__.py
+[ ] Add schedules to database
+[ ] Test with trigger_task_now() before deploying
+
+SCHEDULE TRIGGER EXAMPLES:
+- 'cron:daily_7am' - Every day at 7:00 AM
+- 'cron:monday_8am' - Every Monday at 8:00 AM
+- 'interval:6_hours' - Every 6 hours
+- 'interval:30_minutes' - Every 30 minutes
+- 'manual:user_triggered' - Manual execution only
+
+BEST PRACTICES:
+1. Keep prompts focused and specific
+2. Use clear, descriptive task names
+3. Always wrap execution in try/except
+4. Log appropriately with logger
+5. Use run_autonomous_agent() for consistency
+6. Document what each task does and when it runs
+"""
