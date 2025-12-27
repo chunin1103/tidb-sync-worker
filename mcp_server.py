@@ -9,6 +9,7 @@ Tools:
 - query: Run SELECT queries on the database
 - list_tables: List all tables in the database
 - describe_table: Get table schema/structure
+- today_orders: Get today's orders (convenience method)
 - recent_orders: Get recent orders (convenience method)
 """
 
@@ -137,6 +138,14 @@ MCP_TOOLS = [
         }
     },
     {
+        "name": "today_orders",
+        "description": "Get all orders placed today with count",
+        "inputSchema": {
+            "type": "object",
+            "properties": {}
+        }
+    },
+    {
         "name": "recent_orders",
         "description": "Get the most recent orders from the database",
         "inputSchema": {
@@ -190,6 +199,29 @@ def handle_tool_call(tool_name, arguments):
             return json.dumps({'error': 'Invalid table name'})
         result = execute_query(f"DESCRIBE `{table_name}`")
         return json.dumps(result, default=json_serial)
+
+    elif tool_name == "today_orders":
+        sql = """
+            SELECT COUNT(*) as count
+            FROM orders
+            WHERE DATE(date_purchased) = CURDATE()
+        """
+        count_result = execute_query(sql)
+        count = count_result.get('rows', [{}])[0].get('count', 0) if count_result.get('rows') else 0
+
+        sql = """
+            SELECT orders_id, customers_name, customers_email_address,
+                   date_purchased, orders_status, billing_city, billing_state
+            FROM orders
+            WHERE DATE(date_purchased) = CURDATE()
+            ORDER BY date_purchased DESC
+        """
+        orders_result = execute_query(sql)
+
+        return json.dumps({
+            'count': count,
+            'orders': orders_result.get('rows', [])
+        }, default=json_serial)
 
     elif tool_name == "recent_orders":
         limit = min(arguments.get("limit", 10), 100)
@@ -266,6 +298,9 @@ def mcp_endpoint():
         params = data.get('params', {})
         request_id = data.get('id')
 
+        # Log all incoming MCP method calls for debugging
+        logger.info(f"🔧 MCP method: {method} | params: {list(params.keys()) if params else 'none'}")
+
         # Handle different MCP methods
         if method == 'initialize':
             response = {
@@ -275,16 +310,29 @@ def mcp_endpoint():
                 },
                 'serverInfo': {
                     'name': 'tidb-mcp-server',
-                    'version': '1.0.0'
+                    'version': '1.0.1'
                 }
             }
+            logger.info("✅ MCP initialized")
+
+        elif method == 'initialized':
+            # Notification sent by client after initialize - no response needed
+            response = {}
+            logger.info("✅ Client sent initialized notification")
+
+        elif method == 'notifications/initialized':
+            # Some clients send this instead of 'initialized'
+            response = {}
+            logger.info("✅ Client sent notifications/initialized")
 
         elif method == 'tools/list':
             response = {'tools': MCP_TOOLS}
+            logger.info(f"✅ Returned {len(MCP_TOOLS)} tools")
 
         elif method == 'tools/call':
             tool_name = params.get('name')
             arguments = params.get('arguments', {})
+            logger.info(f"🔨 Calling tool: {tool_name}")
 
             result = handle_tool_call(tool_name, arguments)
 
@@ -296,16 +344,48 @@ def mcp_endpoint():
                     }
                 ]
             }
+            logger.info(f"✅ Tool {tool_name} completed")
 
         elif method == 'ping':
             response = {}
+            logger.info("✅ Ping response")
 
-        else:
+        elif method == 'resources/list':
+            response = {'resources': []}
+            logger.info("ℹ️  Resources not supported (returned empty list)")
+
+        elif method == 'resources/read':
+            logger.warning(f"⚠️  Resources not supported, resource requested: {params.get('uri')}")
             return jsonify({
                 'jsonrpc': '2.0',
-                'error': {'code': -32601, 'message': f'Method not found: {method}'},
+                'error': {'code': -32601, 'message': 'Resources not supported'},
                 'id': request_id
-            }), 404
+            }), 200  # Return 200, not 404
+
+        elif method == 'prompts/list':
+            response = {'prompts': []}
+            logger.info("ℹ️  Prompts not supported (returned empty list)")
+
+        elif method == 'prompts/get':
+            logger.warning(f"⚠️  Prompts not supported, prompt requested: {params.get('name')}")
+            return jsonify({
+                'jsonrpc': '2.0',
+                'error': {'code': -32601, 'message': 'Prompts not supported'},
+                'id': request_id
+            }), 200  # Return 200, not 404
+
+        elif method == 'completion/complete':
+            response = {'completion': {'values': [], 'total': 0, 'hasMore': False}}
+            logger.info("ℹ️  Completion not supported (returned empty)")
+
+        elif method == 'logging/setLevel':
+            response = {}
+            logger.info(f"ℹ️  Logging level change requested: {params.get('level')} (ignored)")
+
+        else:
+            # For any other unknown method, return empty response instead of 404
+            response = {}
+            logger.warning(f"⚠️  Unknown MCP method: {method} (returned empty response)")
 
         return jsonify({
             'jsonrpc': '2.0',
@@ -314,7 +394,9 @@ def mcp_endpoint():
         })
 
     except Exception as e:
-        logger.error(f"MCP error: {e}")
+        logger.error(f"❌ MCP error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return jsonify({
             'jsonrpc': '2.0',
             'error': {'code': -32603, 'message': str(e)},

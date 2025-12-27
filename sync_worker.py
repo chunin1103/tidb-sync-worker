@@ -605,23 +605,9 @@ def status():
     """Get detailed sync status."""
     scheduler_jobs = []
     for job in scheduler.get_jobs():
-        # Handle both APScheduler 3.x and 4.x API differences
-        next_run = None
-        if hasattr(job, 'next_run_time'):
-            # APScheduler 3.x
-            next_run = job.next_run_time.isoformat() if job.next_run_time else None
-        elif hasattr(job, 'trigger'):
-            # APScheduler 4.x - get next fire time from trigger
-            try:
-                next_fire = job.trigger.get_next_fire_time(None, datetime.now())
-                next_run = next_fire.isoformat() if next_fire else None
-            except:
-                next_run = 'unknown'
-
         scheduler_jobs.append({
             'id': job.id,
-            'next_run': next_run,
-            'name': getattr(job, 'name', job.id)
+            'next_run': job.next_run_time.isoformat() if job.next_run_time else None
         })
 
     return jsonify({
@@ -822,16 +808,7 @@ if __name__ == '__main__':
         scheduler.start()
         logger.info("Scheduler started - syncs at 6 AM and 6 PM UTC")
         for job in scheduler.get_jobs():
-            # Handle both APScheduler 3.x and 4.x API
-            next_run = None
-            if hasattr(job, 'next_run_time'):
-                next_run = job.next_run_time
-            elif hasattr(job, 'trigger'):
-                try:
-                    next_run = job.trigger.get_next_fire_time(None, datetime.now())
-                except:
-                    next_run = 'unknown'
-            logger.info(f"  {job.name}: next run at {next_run}")
+            logger.info(f"  {job.name}: next run at {job.next_run_time}")
 
     # Test TiDB connection
     try:
