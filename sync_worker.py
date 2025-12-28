@@ -605,9 +605,23 @@ def status():
     """Get detailed sync status."""
     scheduler_jobs = []
     for job in scheduler.get_jobs():
+        # Handle both APScheduler 3.x and 4.x API differences
+        next_run = None
+        if hasattr(job, 'next_run_time'):
+            # APScheduler 3.x
+            next_run = job.next_run_time.isoformat() if job.next_run_time else None
+        elif hasattr(job, 'trigger'):
+            # APScheduler 4.x - get next fire time from trigger
+            try:
+                next_fire = job.trigger.get_next_fire_time(None, datetime.now())
+                next_run = next_fire.isoformat() if next_fire else None
+            except:
+                next_run = 'unknown'
+
         scheduler_jobs.append({
             'id': job.id,
-            'next_run': job.next_run_time.isoformat() if job.next_run_time else None
+            'next_run': next_run,
+            'name': getattr(job, 'name', job.id)
         })
 
     return jsonify({
@@ -784,21 +798,17 @@ scheduler.add_job(
 
 
 # =============================================================================
-# Main
+# Scheduler Initialization (runs on import)
 # =============================================================================
 
-if __name__ == '__main__':
+def init_scheduler():
+    """
+    Initialize and start the scheduler.
+    Called automatically on module import.
+    """
     # Validate environment for sync
     sync_vars = ['TIDB_USER', 'TIDB_PASSWORD', 'IDRIVE_ACCESS_KEY', 'IDRIVE_SECRET_KEY', 'IDRIVE_ENDPOINT']
     missing_sync = [v for v in sync_vars if not os.environ.get(v)]
-
-    # Minimum required for MCP (TiDB only)
-    mcp_vars = ['TIDB_USER', 'TIDB_PASSWORD']
-    missing_mcp = [v for v in mcp_vars if not os.environ.get(v)]
-
-    if missing_mcp:
-        logger.error(f"Missing required environment variables: {', '.join(missing_mcp)}")
-        sys.exit(1)
 
     if missing_sync:
         logger.warning(f"Sync disabled - missing: {', '.join(missing_sync)}")
@@ -808,7 +818,34 @@ if __name__ == '__main__':
         scheduler.start()
         logger.info("Scheduler started - syncs at 6 AM and 6 PM UTC")
         for job in scheduler.get_jobs():
-            logger.info(f"  {job.name}: next run at {job.next_run_time}")
+            # Handle both APScheduler 3.x and 4.x API
+            next_run = None
+            if hasattr(job, 'next_run_time'):
+                next_run = job.next_run_time
+            elif hasattr(job, 'trigger'):
+                try:
+                    next_run = job.trigger.get_next_fire_time(None, datetime.now())
+                except:
+                    next_run = 'unknown'
+            logger.info(f"  {job.name}: next run at {next_run}")
+
+
+# Initialize scheduler on module import
+init_scheduler()
+
+
+# =============================================================================
+# Main
+# =============================================================================
+
+if __name__ == '__main__':
+    # Minimum required for MCP (TiDB only)
+    mcp_vars = ['TIDB_USER', 'TIDB_PASSWORD']
+    missing_mcp = [v for v in mcp_vars if not os.environ.get(v)]
+
+    if missing_mcp:
+        logger.error(f"Missing required environment variables: {', '.join(missing_mcp)}")
+        sys.exit(1)
 
     # Test TiDB connection
     try:
