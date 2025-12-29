@@ -18,8 +18,7 @@ import os
 # Get the absolute path to wiki files
 _current_dir = os.path.dirname(__file__)
 _repo_root = os.path.dirname(_current_dir)
-_claude_tools = os.path.dirname(_repo_root)
-WIKI_ROOT_PATH = os.path.join(_claude_tools, 'Production', 'wiki')
+WIKI_ROOT_PATH = os.path.join(_repo_root, 'wiki')
 
 # Create blueprint
 wiki_bp = Blueprint(
