@@ -25,8 +25,10 @@ import re
 import json
 import logging
 import threading
+import time
 from datetime import datetime, date
 from decimal import Decimal
+from http.client import IncompleteRead
 from flask import Flask, jsonify, request
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -225,6 +227,43 @@ def apply_tidb_fixes(statement):
     return statement
 
 
+# =============================================================================
+# Retry Logic for Network Failures
+# =============================================================================
+
+def retry_on_network_error(max_retries=3, backoff_base=2):
+    """
+    Decorator to retry function on network failures with exponential backoff.
+
+    Args:
+        max_retries: Maximum number of retry attempts (default: 3)
+        backoff_base: Base for exponential backoff in seconds (default: 2)
+                      Retry delays: 2s, 4s, 8s
+
+    Catches:
+        - IncompleteRead: S3 stream interrupted mid-download
+        - ConnectionError: Network connection lost
+        - BrokenPipeError: Connection terminated unexpectedly
+    """
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries + 1):
+                try:
+                    return func(*args, **kwargs)
+                except (IncompleteRead, ConnectionError, BrokenPipeError) as e:
+                    if attempt == max_retries:
+                        logger.error(f"Failed after {max_retries} retries: {e}")
+                        raise
+                    wait = backoff_base ** attempt
+                    logger.warning(f"Network error on attempt {attempt+1}/{max_retries+1}: {e}")
+                    logger.info(f"Retrying in {wait}s...")
+                    time.sleep(wait)
+            return None  # Should never reach here
+        return wrapper
+    return decorator
+
+
+@retry_on_network_error(max_retries=3)
 def stream_and_execute(s3_key, conn, cursor, dataset_name):
     """Stream SQL from IDrive S3, decompress, and execute on TiDB."""
     global sync_state
