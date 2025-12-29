@@ -209,7 +209,8 @@ python analyze_reorder_needs.py
 - [../../02_Business_Rules/Years_In_Stock_Thresholds.md](../../02_Business_Rules/Years_In_Stock_Thresholds.md) - Threshold comparison table
 
 **Workflows:**
-- See Bullseye Glass/Bullseye Cut Sheets/reference/ for complete workflows
+- [../../03_Decision_Workflows/Bullseye_Vendor_Purchase_Decision_Tree.md](../../03_Decision_Workflows/Bullseye_Vendor_Purchase_Decision_Tree.md) - **Complete purchasing workflow** ⭐
+- See Bullseye Glass/Bullseye Cut Sheets/reference/ for cut sheet workflows
 
 ---
 

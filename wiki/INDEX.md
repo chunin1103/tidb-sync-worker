@@ -97,6 +97,12 @@ All workflows follow **CLAUDE.md "Decision Tree First" Rule** - visualized with 
    - Cost analysis
    - Guardrails and safety checks
 
+4. **[Bullseye Vendor Purchase Decision Tree](./03_Decision_Workflows/Bullseye_Vendor_Purchase_Decision_Tree.md)** ⭐ **NEW**
+   - Complete 5-step purchasing algorithm
+   - How much/how many to order from Bullseye
+   - 3mm vs 2mm logic (cascade rules)
+   - BEFORE/AFTER validation examples
+
 ---
 
 ## 📖 Business Rules
@@ -133,6 +139,13 @@ All workflows follow **CLAUDE.md "Decision Tree First" Rule** - visualized with 
 2. Check cascade opportunities (CRITICAL!)
 3. Follow 5-step algorithm
 4. See [Bullseye README](./05_System_Specific/Bullseye_Glass_System/README.md)
+
+### Calculate Bullseye Vendor Purchase
+1. **Read FIRST:** [Bullseye Vendor Purchase Decision Tree](./03_Decision_Workflows/Bullseye_Vendor_Purchase_Decision_Tree.md) ⭐
+2. Execute 5-step algorithm (cascade FIRST!)
+3. Check 3mm vs 2mm logic
+4. Verify ALL sizes ≥ 0.40yr (including Half!)
+5. Document with BEFORE/AFTER spreadsheets
 
 ### Calculate Vendor Order
 1. Review [Vendor Order Decision Tree](./03_Decision_Workflows/Vendor_Order_Decision_Tree.md)
