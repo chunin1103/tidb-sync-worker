@@ -20,3 +20,7 @@ google-genai>=1.0.0
 
 # Utilities
 python-dotenv>=1.0.0
+
+# Documentation (Wiki Viewer)
+markdown>=3.5.0
+pymdown-extensions>=10.0

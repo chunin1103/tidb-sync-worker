@@ -1,0 +1,180 @@
+{% extends "wiki_base.html" %}
+
+{% block title %}Admin Guide{% endblock %}
+
+{% block content %}
+<div class="admin-guide-page">
+    <h1>🔧 Admin Mode Guide</h1>
+    <p class="subtitle">How to create interactive mappings between Mermaid diagrams and text sections</p>
+
+    <!-- Quick Start -->
+    <section class="guide-section">
+        <h2>Quick Start</h2>
+        <ol class="guide-steps">
+            <li>Navigate to a wiki file with a Mermaid diagram</li>
+            <li>Toggle "Admin Mode" at the top of the page</li>
+            <li>Click a node in the Mermaid diagram</li>
+            <li>Click the text section you want to link it to</li>
+            <li>Confirm the mapping in the dialog</li>
+            <li>Refresh the page to see the mapping in action!</li>
+        </ol>
+    </section>
+
+    <!-- What are Mappings? -->
+    <section class="guide-section">
+        <h2>What are Mappings?</h2>
+        <p>
+            Mappings create bidirectional links between Mermaid diagram nodes and text sections:
+        </p>
+        <ul>
+            <li><strong>Click a diagram node</strong> → Scroll to text section + show tooltip preview</li>
+            <li><strong>Click a text section</strong> → Highlight the corresponding diagram node</li>
+        </ul>
+        <p>
+            Each mapping is assigned a color from a 10-color palette. The same color is used for both the diagram node and the text section border, making it easy to see connections.
+        </p>
+    </section>
+
+    <!-- Step-by-Step Instructions -->
+    <section class="guide-section">
+        <h2>Step-by-Step Instructions</h2>
+
+        <div class="instruction-step">
+            <h3>Step 1: Enter Admin Mode</h3>
+            <p>
+                On any wiki file page, toggle the "🔧 Admin Mode" checkbox at the top.
+                You'll see an orange banner appear with instructions.
+            </p>
+        </div>
+
+        <div class="instruction-step">
+            <h3>Step 2: Select a Diagram Node</h3>
+            <p>
+                Click any node in the Mermaid diagram. The node will be highlighted with a green border.
+                The banner will update to say "Step 2: Click a text section".
+            </p>
+            <p class="tip">
+                <strong>Tip:</strong> Node IDs are typically letters (A, B, C, etc.) or short codes.
+                Hover over nodes to see them light up before clicking.
+            </p>
+        </div>
+
+        <div class="instruction-step">
+            <h3>Step 3: Select a Text Section</h3>
+            <p>
+                Click a heading (H2, H3, or H4) in the markdown content that corresponds to the diagram node.
+                The heading will be highlighted with a green background.
+            </p>
+            <p class="tip">
+                <strong>Tip:</strong> Headings become clickable in admin mode. Look for the hover effect.
+            </p>
+        </div>
+
+        <div class="instruction-step">
+            <h3>Step 4: Confirm the Mapping</h3>
+            <p>
+                A confirmation dialog will appear showing:
+            </p>
+            <ul>
+                <li><strong>Node:</strong> The diagram node ID you selected</li>
+                <li><strong>Section:</strong> The text heading you selected</li>
+                <li><strong>Color:</strong> Auto-suggested color (you can change it)</li>
+                <li><strong>Label:</strong> Default label (you can customize it)</li>
+            </ul>
+            <p>
+                Click "Create Mapping" to save, or "Cancel" to abort.
+            </p>
+        </div>
+
+        <div class="instruction-step">
+            <h3>Step 5: See It In Action</h3>
+            <p>
+                After creating a mapping, refresh the page. You'll now see:
+            </p>
+            <ul>
+                <li>The diagram node has a colored background</li>
+                <li>The text section has a colored left border</li>
+                <li>Clicking either one highlights the other!</li>
+            </ul>
+        </div>
+    </section>
+
+    <!-- Best Practices -->
+    <section class="guide-section">
+        <h2>Best Practices</h2>
+        <ul>
+            <li><strong>Map key nodes first:</strong> Start with the most important decision points</li>
+            <li><strong>Use consistent naming:</strong> Keep labels short and descriptive</li>
+            <li><strong>Match node flow:</strong> Map nodes in the order they appear in the diagram</li>
+            <li><strong>Test your mappings:</strong> Click nodes/sections to verify they work as expected</li>
+            <li><strong>Don't over-map:</strong> Not every node needs a mapping - focus on complex ones</li>
+        </ul>
+    </section>
+
+    <!-- Color Palette -->
+    <section class="guide-section">
+        <h2>Color Palette</h2>
+        <p>Mappings use a 10-color Material Design palette:</p>
+        <div class="color-palette">
+            <div class="color-swatch" style="background-color: #ffeb3b;">Yellow</div>
+            <div class="color-swatch" style="background-color: #ff9800;">Orange</div>
+            <div class="color-swatch" style="background-color: #f44336;">Red</div>
+            <div class="color-swatch" style="background-color: #e91e63;">Pink</div>
+            <div class="color-swatch" style="background-color: #9c27b0;">Purple</div>
+            <div class="color-swatch" style="background-color: #3f51b5;">Indigo</div>
+            <div class="color-swatch" style="background-color: #2196f3;">Blue</div>
+            <div class="color-swatch" style="background-color: #00bcd4;">Cyan</div>
+            <div class="color-swatch" style="background-color: #009688;">Teal</div>
+            <div class="color-swatch" style="background-color: #4caf50;">Green</div>
+        </div>
+        <p class="tip">
+            The system automatically suggests the next unused color. If all 10 colors are used, it cycles back to the beginning.
+        </p>
+    </section>
+
+    <!-- Troubleshooting -->
+    <section class="guide-section">
+        <h2>Troubleshooting</h2>
+
+        <h3>Problem: Can't click a diagram node</h3>
+        <p>
+            <strong>Solution:</strong> Make sure admin mode is enabled (orange banner should be visible).
+            Try clicking directly on the node shape (rectangle, circle, diamond), not the text inside.
+        </p>
+
+        <h3>Problem: Can't click a text heading</h3>
+        <p>
+            <strong>Solution:</strong> Only H2, H3, and H4 headings are clickable in admin mode.
+            Make sure you've selected a diagram node first (step 2).
+        </p>
+
+        <h3>Problem: Mapping doesn't work after creation</h3>
+        <p>
+            <strong>Solution:</strong> Refresh the page (Ctrl+R or Cmd+R).
+            The page needs to reload to apply new mappings.
+        </p>
+
+        <h3>Problem: Wrong section is highlighted</h3>
+        <p>
+            <strong>Solution:</strong> Delete the mapping and recreate it.
+            Make sure you're clicking the correct heading (check the section ID in the confirmation dialog).
+        </p>
+    </section>
+
+    <!-- Example Files -->
+    <section class="guide-section">
+        <h2>Example Files to Practice</h2>
+        <ul>
+            <li><a href="/wiki/view/03_Decision_Workflows/Inventory_Filtering_Workflow">Inventory Filtering Workflow</a> - 26 nodes (most complex)</li>
+            <li><a href="/wiki/view/03_Decision_Workflows/Reorder_Calculation_Workflow">Reorder Calculation Workflow</a> - Good for beginners</li>
+            <li><a href="/wiki/view/03_Decision_Workflows/Vendor_Order_Decision_Tree">Vendor Order Decision Tree</a> - Simple 4-node example</li>
+        </ul>
+    </section>
+
+    <!-- Back to Wiki -->
+    <div class="guide-actions">
+        <a href="/wiki/" class="btn-primary">Back to Wiki Home</a>
+        <a href="/wiki/browse?folder=03_Decision_Workflows" class="btn-secondary">Browse Decision Workflows</a>
+    </div>
+</div>
+{% endblock %}

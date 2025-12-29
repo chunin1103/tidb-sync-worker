@@ -1,0 +1,958 @@
+/**
+ * Wiki Viewer Styles
+ * Interactive documentation viewer with Mermaid diagram linking
+ */
+
+/* =============================================================================
+   GLOBAL STYLES & RESET
+   ============================================================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    color: #333;
+    background-color: #f5f5f5;
+}
+
+a {
+    color: #2196f3;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+a:hover {
+    color: #1976d2;
+    text-decoration: underline;
+}
+
+/* =============================================================================
+   HEADER & NAVIGATION
+   ============================================================================= */
+
+.wiki-header {
+    background: #fff;
+    border-bottom: 2px solid #e0e0e0;
+    padding: 15px 0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.wiki-nav {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.nav-logo {
+    font-size: 18px;
+    font-weight: bold;
+    color: #333;
+}
+
+.nav-separator {
+    color: #ccc;
+}
+
+.nav-link {
+    font-size: 14px;
+    color: #666;
+    padding: 5px 10px;
+    border-radius: 4px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.nav-link:hover {
+    background: #f0f0f0;
+    color: #333;
+    text-decoration: none;
+}
+
+.nav-link.active {
+    background: #2196f3;
+    color: #fff;
+}
+
+/* =============================================================================
+   MAIN CONTENT AREA
+   ============================================================================= */
+
+.wiki-main {
+    min-height: calc(100vh - 140px);
+    padding: 20px;
+}
+
+.wiki-viewer,
+.workflow-overview-page,
+.file-browser-page,
+.admin-guide-page {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* =============================================================================
+   WORKFLOW OVERVIEW PAGE
+   ============================================================================= */
+
+.workflow-overview-page h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+    color: #1976d2;
+}
+
+.subtitle {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.workflow-timeline {
+    background: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    margin-bottom: 40px;
+}
+
+.workflow-timeline svg {
+    width: 100%;
+    height: auto;
+}
+
+.stage {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.stage:hover {
+    opacity: 0.8;
+}
+
+.additional-folders {
+    margin-top: 40px;
+}
+
+.additional-folders h2 {
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+.folder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+}
+
+.folder-card {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    text-align: center;
+    display: block;
+}
+
+.folder-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    text-decoration: none;
+}
+
+.folder-card.master-index {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.folder-card.master-index .folder-name,
+.folder-card.master-index .folder-desc,
+.folder-card.master-index .folder-count {
+    color: #fff;
+}
+
+.folder-icon {
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.folder-name {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 5px;
+    color: #333;
+}
+
+.folder-desc {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.folder-count {
+    font-size: 12px;
+    color: #999;
+    font-weight: 500;
+}
+
+.quick-actions {
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-top: 40px;
+}
+
+.quick-actions h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+}
+
+.quick-actions ul {
+    list-style: none;
+}
+
+.quick-actions li {
+    margin: 10px 0;
+}
+
+.quick-actions a {
+    font-size: 16px;
+}
+
+/* =============================================================================
+   FILE BROWSER PAGE
+   ============================================================================= */
+
+.file-browser-page h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.browser-subtitle {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 30px;
+}
+
+.folder-section,
+.file-section {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.folder-section h2,
+.file-section h2 {
+    font-size: 20px;
+    margin-bottom: 15px;
+    color: #1976d2;
+}
+
+.folder-list,
+.file-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 15px;
+}
+
+.folder-item,
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.folder-item:hover,
+.file-item:hover {
+    background: #f9f9f9;
+    border-color: #2196f3;
+    text-decoration: none;
+}
+
+.file-item.has-mappings {
+    border-left: 4px solid #4caf50;
+}
+
+.folder-icon,
+.file-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+.folder-info,
+.file-info {
+    flex: 1;
+}
+
+.folder-name,
+.file-name {
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 3px;
+}
+
+.folder-meta {
+    font-size: 12px;
+    color: #999;
+}
+
+.file-badge {
+    display: inline-block;
+    font-size: 11px;
+    color: #4caf50;
+    background: #e8f5e9;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 4px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #999;
+}
+
+/* =============================================================================
+   WIKI FILE VIEWER
+   ============================================================================= */
+
+.breadcrumb {
+    font-size: 14px;
+    color: #666;
+    padding: 10px 0;
+    margin-bottom: 15px;
+}
+
+.breadcrumb a {
+    color: #2196f3;
+}
+
+.breadcrumb span {
+    color: #333;
+    font-weight: 500;
+}
+
+.admin-toggle {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 6px;
+    padding: 12px 15px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.admin-toggle label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.admin-toggle input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.mapping-count {
+    font-size: 12px;
+    color: #666;
+    background: #f0f0f0;
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.wiki-layout {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 30px;
+}
+
+/* Left sidebar: Table of Contents */
+.wiki-toc {
+    position: sticky;
+    top: 20px;
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
+    padding: 20px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.wiki-toc h3 {
+    font-size: 18px;
+    margin-bottom: 15px;
+    color: #1976d2;
+}
+
+.wiki-toc ul {
+    list-style: none;
+}
+
+.wiki-toc li {
+    margin: 8px 0;
+}
+
+.wiki-toc a {
+    font-size: 14px;
+    color: #666;
+}
+
+.wiki-toc a:hover {
+    color: #2196f3;
+}
+
+.toc-empty {
+    font-size: 14px;
+    color: #999;
+    font-style: italic;
+}
+
+.diagram-info,
+.mapping-info {
+    margin-top: 15px;
+    padding-top: 15px;
+}
+
+.diagram-info p,
+.mapping-info p {
+    font-size: 13px;
+    color: #666;
+}
+
+/* Main content area */
+.wiki-content {
+    padding: 30px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#markdown-content {
+    line-height: 1.8;
+}
+
+#markdown-content h1 {
+    font-size: 32px;
+    margin: 30px 0 20px 0;
+    color: #1976d2;
+}
+
+#markdown-content h2 {
+    font-size: 24px;
+    margin: 25px 0 15px 0;
+    padding-bottom: 8px;
+    border-bottom: 2px solid #e0e0e0;
+    color: #333;
+}
+
+#markdown-content h3 {
+    font-size: 20px;
+    margin: 20px 0 12px 0;
+    color: #555;
+}
+
+#markdown-content h4 {
+    font-size: 18px;
+    margin: 18px 0 10px 0;
+    color: #666;
+}
+
+#markdown-content p {
+    margin: 12px 0;
+}
+
+#markdown-content ul,
+#markdown-content ol {
+    margin: 12px 0;
+    padding-left: 30px;
+}
+
+#markdown-content li {
+    margin: 6px 0;
+}
+
+#markdown-content table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+#markdown-content th,
+#markdown-content td {
+    border: 1px solid #e0e0e0;
+    padding: 10px;
+    text-align: left;
+}
+
+#markdown-content th {
+    background: #f5f5f5;
+    font-weight: 600;
+}
+
+#markdown-content code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 14px;
+}
+
+#markdown-content pre {
+    background: #282c34;
+    color: #abb2bf;
+    padding: 15px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 15px 0;
+}
+
+#markdown-content pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+}
+
+/* Mermaid diagrams */
+.mermaid {
+    margin: 30px 0;
+    padding: 25px;
+    background: #fafafa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    overflow-x: auto;
+}
+
+/* Section highlighting (when clicked from diagram) */
+.pulse-highlight {
+    animation: pulse 2s ease-in-out;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        background-color: transparent;
+    }
+    50% {
+        background-color: rgba(255, 235, 59, 0.3);
+    }
+}
+
+/* =============================================================================
+   TOOLTIPS
+   ============================================================================= */
+
+.wiki-tooltip {
+    position: absolute;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    padding: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    max-width: 300px;
+    font-size: 14px;
+    pointer-events: none;
+}
+
+.wiki-tooltip strong {
+    display: block;
+    margin-bottom: 6px;
+    color: #333;
+    font-size: 15px;
+}
+
+.wiki-tooltip p {
+    margin: 0;
+    color: #666;
+    line-height: 1.4;
+}
+
+.tooltip-hint {
+    display: block;
+    margin-top: 8px;
+    font-size: 12px;
+    color: #2196f3;
+    font-style: italic;
+}
+
+.wiki-tooltip-persistent {
+    position: fixed;
+    pointer-events: auto;
+}
+
+.tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.tooltip-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tooltip-close:hover {
+    color: #333;
+}
+
+/* =============================================================================
+   ADMIN MODE
+   ============================================================================= */
+
+.admin-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #ff9800;
+    color: #fff;
+    padding: 15px;
+    text-align: center;
+    z-index: 2000;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+.admin-banner p {
+    margin: 5px 0;
+}
+
+.admin-banner strong {
+    font-weight: 700;
+}
+
+.admin-banner button {
+    margin-top: 10px;
+    padding: 8px 20px;
+    background: #fff;
+    color: #ff9800;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.admin-banner button:hover {
+    background: #f5f5f5;
+}
+
+.admin-mode-active body {
+    padding-top: 90px;
+}
+
+.admin-mode-active .mermaid g[id] {
+    cursor: pointer;
+}
+
+.admin-mode-active .mermaid g[id]:hover rect,
+.admin-mode-active .mermaid g[id]:hover circle,
+.admin-mode-active .mermaid g[id]:hover polygon {
+    stroke: #ff9800;
+    stroke-width: 3;
+}
+
+.admin-selected-node rect,
+.admin-selected-node circle,
+.admin-selected-node polygon {
+    stroke: #4caf50 !important;
+    stroke-width: 4 !important;
+}
+
+.admin-mode-active h2[id],
+.admin-mode-active h3[id],
+.admin-mode-active h4[id] {
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.admin-mode-active h2[id]:hover,
+.admin-mode-active h3[id]:hover,
+.admin-mode-active h4[id]:hover {
+    background: rgba(255, 152, 0, 0.1);
+}
+
+.admin-selected-section {
+    background: rgba(76, 175, 80, 0.2) !important;
+}
+
+/* Admin Modal */
+.admin-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    max-width: 500px;
+    width: 90%;
+}
+
+.modal-content h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    font-size: 22px;
+}
+
+.modal-content table {
+    width: 100%;
+    margin: 20px 0;
+}
+
+.modal-content td {
+    padding: 8px;
+    vertical-align: top;
+}
+
+.modal-content td:first-child {
+    font-weight: 600;
+    width: 120px;
+}
+
+.modal-content input[type="text"],
+.modal-content input[type="color"] {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+.btn-primary,
+.btn-secondary {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    transition: background 0.2s;
+}
+
+.btn-primary {
+    background: #4caf50;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background: #45a049;
+}
+
+.btn-secondary {
+    background: #f5f5f5;
+    color: #333;
+}
+
+.btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+/* =============================================================================
+   ADMIN GUIDE PAGE
+   ============================================================================= */
+
+.admin-guide-page h1 {
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.guide-section {
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 30px;
+}
+
+.guide-section h2 {
+    font-size: 24px;
+    margin-bottom: 15px;
+    color: #1976d2;
+}
+
+.guide-section h3 {
+    font-size: 18px;
+    margin: 20px 0 10px 0;
+    color: #333;
+}
+
+.guide-steps {
+    padding-left: 20px;
+}
+
+.guide-steps li {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.guide-section ul {
+    padding-left: 20px;
+}
+
+.guide-section li {
+    margin: 8px 0;
+}
+
+.instruction-step {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f9f9f9;
+    border-left: 4px solid #2196f3;
+    border-radius: 4px;
+}
+
+.instruction-step h3 {
+    margin-top: 0;
+    color: #1976d2;
+}
+
+.tip {
+    background: #e3f2fd;
+    padding: 12px;
+    border-radius: 4px;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.color-palette {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px;
+    margin: 15px 0;
+}
+
+.color-swatch {
+    padding: 15px;
+    text-align: center;
+    border-radius: 6px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.guide-actions {
+    text-align: center;
+    margin-top: 40px;
+}
+
+.guide-actions .btn-primary,
+.guide-actions .btn-secondary {
+    margin: 0 10px;
+}
+
+/* =============================================================================
+   FOOTER
+   ============================================================================= */
+
+.wiki-footer {
+    background: #fff;
+    border-top: 1px solid #e0e0e0;
+    padding: 20px;
+    text-align: center;
+    font-size: 13px;
+    color: #999;
+    margin-top: 40px;
+}
+
+/* =============================================================================
+   RESPONSIVE DESIGN
+   ============================================================================= */
+
+@media (max-width: 768px) {
+    .wiki-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .wiki-toc {
+        position: static;
+        max-height: none;
+        margin-bottom: 20px;
+    }
+
+    .workflow-timeline {
+        padding: 15px;
+    }
+
+    .folder-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .folder-list,
+    .file-list {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-mode-active body {
+        padding-top: 110px;
+    }
+}
+
+@media (max-width: 480px) {
+    .wiki-nav {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .nav-separator {
+        display: none;
+    }
+
+    .workflow-overview-page h1,
+    .file-browser-page h1,
+    .admin-guide-page h1 {
+        font-size: 24px;
+    }
+
+    .color-palette {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

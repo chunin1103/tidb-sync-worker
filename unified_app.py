@@ -164,6 +164,30 @@ except Exception as e:
     traceback.print_exc()
 
 # =============================================================================
+# IMPORT AND REGISTER WIKI VIEWER (Mounted at /wiki)
+# =============================================================================
+
+try:
+    # Import wiki viewer blueprint
+    from wiki_viewer import wiki_bp
+
+    # Register blueprint
+    app.register_blueprint(wiki_bp)
+
+    logger.info("✅ Wiki Viewer registered at /wiki")
+    logger.info("   - GET  /wiki/              - Workflow overview")
+    logger.info("   - GET  /wiki/browse        - File browser")
+    logger.info("   - GET  /wiki/view/<path>   - Markdown viewer")
+    logger.info("   - GET  /wiki/admin         - Admin mode guide")
+    logger.info("   - POST /wiki/api/mappings  - Create mappings (API)")
+
+except Exception as e:
+    logger.error(f"❌ Failed to import Wiki Viewer: {e}")
+    logger.info("⚠️  Wiki Viewer will not be available")
+    import traceback
+    traceback.print_exc()
+
+# =============================================================================
 # ROOT ENDPOINT (Unified Health Check)
 # =============================================================================
 
@@ -173,7 +197,8 @@ def unified_health():
     services = {
         'tidb_mcp': False,
         'agent_garden': False,
-        'sync_worker': False
+        'sync_worker': False,
+        'wiki_viewer': False
     }
 
     # Check if MCP is available
@@ -198,6 +223,13 @@ def unified_health():
     except:
         pass
 
+    # Check if Wiki Viewer is available
+    try:
+        from wiki_viewer import wiki_bp
+        services['wiki_viewer'] = True
+    except:
+        pass
+
     return jsonify({
         'status': 'healthy',
         'service': 'unified-tidb-agent-garden',
@@ -217,6 +249,13 @@ def unified_health():
             'sync_worker': {
                 'status': '/status',
                 'sync': '/sync'
+            },
+            'wiki_viewer': {
+                'overview': '/wiki/',
+                'browse': '/wiki/browse',
+                'view': '/wiki/view/<path>',
+                'admin': '/wiki/admin',
+                'api_mappings': '/wiki/api/mappings/<path>'
             }
         }
     })

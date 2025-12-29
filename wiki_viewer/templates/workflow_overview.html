@@ -1,0 +1,136 @@
+{% extends "wiki_base.html" %}
+
+{% block title %}Workflow Overview{% endblock %}
+
+{% block content %}
+<div class="workflow-overview-page">
+    <h1>Production Wiki - Workflow Overview</h1>
+    <p class="subtitle">Interactive documentation for glass cutting systems, vendor ordering, and production tools</p>
+
+    <!-- Visual Timeline (SVG) -->
+    <div class="workflow-timeline">
+        <svg viewBox="0 0 1000 300" xmlns="http://www.w3.org/2000/svg">
+            <!-- Stage 1: Input -->
+            <g class="stage" onclick="window.location.href='/wiki/browse?folder=01_Input_Data_Processing'">
+                <rect x="50" y="80" width="180" height="160" fill="#e3f2fd" stroke="#2196f3" stroke-width="2" rx="8" />
+                <text x="140" y="110" text-anchor="middle" font-size="20" font-weight="bold" fill="#1976d2">Input</text>
+                <text x="140" y="140" text-anchor="middle" font-size="14" fill="#424242">Data Cleanup</text>
+                <text x="140" y="165" text-anchor="middle" font-size="14" fill="#424242">Keyword Filter</text>
+                <text x="140" y="190" text-anchor="middle" font-size="14" fill="#424242">Family Filter</text>
+                <text x="140" y="220" text-anchor="middle" font-size="16" font-weight="bold" fill="#1976d2">{{ folder_stats.get('01_Input_Data_Processing', 0) }} files</text>
+            </g>
+
+            <!-- Arrow -->
+            <path d="M 230 160 L 280 160" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)" />
+
+            <!-- Stage 2: Rules -->
+            <g class="stage" onclick="window.location.href='/wiki/browse?folder=02_Business_Rules'">
+                <rect x="280" y="80" width="180" height="160" fill="#fff3e0" stroke="#ff9800" stroke-width="2" rx="8" />
+                <text x="370" y="110" text-anchor="middle" font-size="20" font-weight="bold" fill="#ef6c00">Rules</text>
+                <text x="370" y="140" text-anchor="middle" font-size="14" fill="#424242">Glass Sizes</text>
+                <text x="370" y="165" text-anchor="middle" font-size="14" fill="#424242">YIS Thresholds</text>
+                <text x="370" y="190" text-anchor="middle" font-size="14" fill="#424242">Vendor Policies</text>
+                <text x="370" y="220" text-anchor="middle" font-size="16" font-weight="bold" fill="#ef6c00">{{ folder_stats.get('02_Business_Rules', 0) }} files</text>
+            </g>
+
+            <!-- Arrow -->
+            <path d="M 460 160 L 510 160" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)" />
+
+            <!-- Stage 3: Decision -->
+            <g class="stage" onclick="window.location.href='/wiki/browse?folder=03_Decision_Workflows'">
+                <rect x="510" y="80" width="180" height="160" fill="#f3e5f5" stroke="#9c27b0" stroke-width="2" rx="8" />
+                <text x="600" y="110" text-anchor="middle" font-size="20" font-weight="bold" fill="#7b1fa2">Decision</text>
+                <text x="600" y="140" text-anchor="middle" font-size="14" fill="#424242">Inv. Filtering</text>
+                <text x="600" y="165" text-anchor="middle" font-size="14" fill="#424242">Reorder Calc</text>
+                <text x="600" y="190" text-anchor="middle" font-size="14" fill="#424242">Vendor Orders</text>
+                <text x="600" y="220" text-anchor="middle" font-size="16" font-weight="bold" fill="#7b1fa2">{{ folder_stats.get('03_Decision_Workflows', 0) }} files</text>
+            </g>
+
+            <!-- Arrow -->
+            <path d="M 690 160 L 740 160" stroke="#666" stroke-width="2" marker-end="url(#arrowhead)" />
+
+            <!-- Stage 4: Output -->
+            <g class="stage" onclick="window.location.href='/wiki/browse?folder=04_Output_Generation'">
+                <rect x="740" y="80" width="180" height="160" fill="#e8f5e9" stroke="#4caf50" stroke-width="2" rx="8" />
+                <text x="830" y="110" text-anchor="middle" font-size="20" font-weight="bold" fill="#388e3c">Output</text>
+                <text x="830" y="140" text-anchor="middle" font-size="14" fill="#424242">Work Orders</text>
+                <text x="830" y="165" text-anchor="middle" font-size="14" fill="#424242">Cut Sheets</text>
+                <text x="830" y="190" text-anchor="middle" font-size="14" fill="#424242">Reports</text>
+                <text x="830" y="220" text-anchor="middle" font-size="16" font-weight="bold" fill="#388e3c">{{ folder_stats.get('04_Output_Generation', 0) }} files</text>
+            </g>
+
+            <!-- Arrow marker definition -->
+            <defs>
+                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                    <polygon points="0 0, 10 3.5, 0 7" fill="#666" />
+                </marker>
+            </defs>
+        </svg>
+    </div>
+
+    <!-- Additional Folders -->
+    <div class="additional-folders">
+        <h2>System-Specific Documentation</h2>
+        <div class="folder-grid">
+            <a href="/wiki/browse?folder=05_System_Specific" class="folder-card">
+                <div class="folder-icon">📁</div>
+                <div class="folder-name">Systems</div>
+                <div class="folder-desc">Oceanside, Bullseye, FEIE, Wildcats, Passport</div>
+                <div class="folder-count">{{ folder_stats.get('05_System_Specific', 0) }} items</div>
+            </a>
+
+            <a href="/wiki/browse?folder=06_Reference_Data" class="folder-card">
+                <div class="folder-icon">📚</div>
+                <div class="folder-name">Reference</div>
+                <div class="folder-desc">Formulas, errors, examples</div>
+                <div class="folder-count">{{ folder_stats.get('06_Reference_Data', 0) }} files</div>
+            </a>
+
+            <a href="/wiki/browse?folder=07_Archive" class="folder-card">
+                <div class="folder-icon">🗄️</div>
+                <div class="folder-name">Archive</div>
+                <div class="folder-desc">Historical files, ChatGPT exports</div>
+                <div class="folder-count">{{ folder_stats.get('07_Archive', 0) }} files</div>
+            </a>
+
+            <a href="/wiki/view/INDEX" class="folder-card master-index">
+                <div class="folder-icon">📖</div>
+                <div class="folder-name">Master Index</div>
+                <div class="folder-desc">Complete wiki navigation</div>
+                <div class="folder-count">All 31 files</div>
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions">
+        <h2>Quick Start</h2>
+        <ul>
+            <li><a href="/wiki/view/03_Decision_Workflows/Inventory_Filtering_Workflow">🔍 Inventory Filtering Workflow</a> - Most comprehensive decision tree (26 nodes)</li>
+            <li><a href="/wiki/view/03_Decision_Workflows/Reorder_Calculation_Workflow">🔢 Reorder Calculation Workflow</a> - How to calculate reorder quantities</li>
+            <li><a href="/wiki/view/02_Business_Rules/Glass_Sizes_and_Cutting_Yields">📐 Glass Sizes & Yields</a> - Size dimensions and cutting rules</li>
+            <li><a href="/wiki/view/05_System_Specific/Bullseye_Glass_System/README">🎯 Bullseye System Guide</a> - Complete Bullseye documentation</li>
+            <li><a href="/wiki/admin">🔧 Admin Guide</a> - How to create diagram-text mappings</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Make stages interactive (already have onclick, but add hover effect)
+document.querySelectorAll('.stage').forEach(stage => {
+    stage.style.cursor = 'pointer';
+
+    stage.addEventListener('mouseenter', function() {
+        const rect = this.querySelector('rect');
+        rect.setAttribute('opacity', '0.8');
+    });
+
+    stage.addEventListener('mouseleave', function() {
+        const rect = this.querySelector('rect');
+        rect.setAttribute('opacity', '1');
+    });
+});
+</script>
+{% endblock %}

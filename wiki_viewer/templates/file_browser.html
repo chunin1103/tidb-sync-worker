@@ -1,0 +1,64 @@
+{% extends "wiki_base.html" %}
+
+{% block title %}Browse Files{% endblock %}
+
+{% block content %}
+<div class="file-browser-page">
+    <h1>📁 Browse Wiki Files</h1>
+
+    {% if folder_filter %}
+    <p class="browser-subtitle">
+        Showing files in: <strong>{{ folder_filter }}</strong>
+        | <a href="/wiki/browse">View all folders</a>
+    </p>
+    {% else %}
+    <p class="browser-subtitle">
+        Click a folder to view its files, or click a file to view its content
+    </p>
+    {% endif %}
+
+    <!-- Folders -->
+    {% if structure.folders %}
+    <section class="folder-section">
+        <h2>📂 Folders</h2>
+        <div class="folder-list">
+            {% for folder in structure.folders %}
+            <a href="/wiki/browse?folder={{ folder.path }}" class="folder-item">
+                <div class="folder-icon">📁</div>
+                <div class="folder-info">
+                    <div class="folder-name">{{ folder.name }}</div>
+                    <div class="folder-meta">{{ folder.file_count }} file(s)</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Files -->
+    {% if structure.files %}
+    <section class="file-section">
+        <h2>📄 Files</h2>
+        <div class="file-list">
+            {% for file in structure.files %}
+            <a href="/wiki/view/{{ file.path }}" class="file-item {% if file.has_mappings %}has-mappings{% endif %}">
+                <div class="file-icon">📄</div>
+                <div class="file-info">
+                    <div class="file-name">{{ file.name }}</div>
+                    {% if file.has_mappings %}
+                    <div class="file-badge">🔗 Mapped</div>
+                    {% endif %}
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    {% if not structure.folders and not structure.files %}
+    <div class="empty-state">
+        <p>No files found</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

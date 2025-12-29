@@ -1,0 +1,70 @@
+{% extends "wiki_base.html" %}
+
+{% block title %}{{ filename }}{% endblock %}
+
+{% block content %}
+<div class="wiki-viewer">
+    <!-- Breadcrumb Navigation -->
+    <nav class="breadcrumb">
+        <a href="/wiki">Wiki Home</a>
+        {% for folder in breadcrumb_trail %}
+            &gt; <a href="/wiki/browse?folder={{ folder }}">{{ folder }}</a>
+        {% endfor %}
+        &gt; <span>{{ filename }}</span>
+    </nav>
+
+    <!-- Admin Mode Toggle -->
+    <div class="admin-toggle">
+        <label>
+            <input type="checkbox" id="admin-mode-toggle" />
+            <span>🔧 Admin Mode (Create Mappings)</span>
+        </label>
+        <span class="mapping-count">{{ mappings|length }} mapping(s)</span>
+    </div>
+
+    <!-- Two-column layout -->
+    <div class="wiki-layout">
+        <!-- Left sidebar: Table of Contents -->
+        <aside class="wiki-toc">
+            <h3>Contents</h3>
+            {% if toc %}
+                {{ toc|safe }}
+            {% else %}
+                <p class="toc-empty">No headings found</p>
+            {% endif %}
+
+            <!-- Diagram count -->
+            {% if diagram_count > 0 %}
+            <div class="diagram-info">
+                <hr>
+                <p><strong>📊 Diagrams:</strong> {{ diagram_count }}</p>
+            </div>
+            {% endif %}
+
+            <!-- Mapping count -->
+            {% if mappings|length > 0 %}
+            <div class="mapping-info">
+                <p><strong>🔗 Mappings:</strong> {{ mappings|length }}</p>
+            </div>
+            {% endif %}
+        </aside>
+
+        <!-- Main content area -->
+        <main class="wiki-content" data-file-path="{{ file_path }}">
+            <!-- Rendered markdown -->
+            <article id="markdown-content">
+                {{ content|safe }}
+            </article>
+
+            <!-- Mappings data (hidden, for JavaScript) -->
+            <script id="mappings-data" type="application/json">
+{{ mappings|tojson }}
+            </script>
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('wiki.static', filename='wiki.js') }}"></script>
+{% endblock %}

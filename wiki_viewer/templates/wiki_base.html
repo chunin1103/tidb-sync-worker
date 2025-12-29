@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Production Wiki{% endblock %} | Claude Tools</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="{{ url_for('wiki.static', filename='wiki.css') }}">
+
+    <!-- Mermaid.js (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation Header -->
+    <header class="wiki-header">
+        <div class="wiki-nav">
+            <a href="/" class="nav-logo">🏠 Claude Tools</a>
+            <span class="nav-separator">|</span>
+            <a href="/wiki/" class="nav-link {% if request.path == '/wiki/' %}active{% endif %}">Wiki Home</a>
+            <a href="/wiki/browse" class="nav-link {% if '/browse' in request.path %}active{% endif %}">Browse Files</a>
+            <a href="/wiki/admin" class="nav-link {% if '/admin' in request.path %}active{% endif %}">Admin Guide</a>
+            <span class="nav-separator">|</span>
+            <a href="/AgentGarden/" class="nav-link">Agent Garden</a>
+            <a href="/status" class="nav-link">Sync Status</a>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="wiki-main">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="wiki-footer">
+        <p>Production Wiki | Claude Tools | Powered by Flask + Mermaid.js</p>
+    </footer>
+
+    <!-- Scripts -->
+    {% block scripts %}{% endblock %}
+</body>
+</html>
