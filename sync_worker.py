@@ -161,7 +161,16 @@ def get_latest_backup_file(prefix):
         files.sort()
         latest_key = files[-1]
         latest_filename = latest_key.split('/')[-1]
-        logger.info(f"Latest backup: {latest_filename}")
+        logger.info(f"✅ Latest backup selected: {latest_filename}")
+        logger.info(f"   📁 Full S3 path: s3://{S3_BUCKET}/{latest_key}")
+
+        # Extract and log the backup date from filename (format: YYYY-MM-DD-HH-MM-SS_...)
+        import re
+        date_match = re.search(r'(\d{4}-\d{2}-\d{2})-(\d{2}-\d{2}-\d{2})', latest_filename)
+        if date_match:
+            backup_date = f"{date_match.group(1)} {date_match.group(2).replace('-', ':')}"
+            logger.info(f"   📅 Backup timestamp: {backup_date}")
+
         return latest_key
 
     except Exception as e:
@@ -270,7 +279,8 @@ def stream_and_execute(s3_key, conn, cursor, dataset_name):
     global sync_state
 
     filename = s3_key.split('/')[-1]
-    logger.info(f"Starting {dataset_name} sync from {filename}")
+    logger.info(f"📥 Starting {dataset_name} sync from: {filename}")
+    logger.info(f"   S3 Key: {s3_key}")
     sync_state['current_phase'] = dataset_name
 
     s3 = get_s3_client()
@@ -335,7 +345,26 @@ def stream_and_execute(s3_key, conn, cursor, dataset_name):
                 if e.args[0] != 1062 and errors <= 20:
                     logger.warning(f"SQL Error [{e.args[0]}]: {str(e)[:150]}")
 
-    logger.info(f"{dataset_name} complete: {statements_executed} statements, {errors} errors")
+    logger.info(f"✅ {dataset_name} complete: {statements_executed} statements, {errors} errors")
+
+    # Log record counts for key tables to help debug "0 orders today" issues
+    try:
+        if "Orders" in dataset_name:
+            cursor.execute("SELECT COUNT(*) as count FROM orders")
+            order_count = cursor.fetchone()['count']
+            logger.info(f"   📊 Total orders in database: {order_count:,}")
+
+            cursor.execute("SELECT COUNT(*) as count FROM orders WHERE DATE(date_purchased) = CURDATE()")
+            today_count = cursor.fetchone()['count']
+            logger.info(f"   📊 Orders placed today: {today_count:,}")
+
+            cursor.execute("SELECT MAX(date_purchased) as latest FROM orders")
+            latest = cursor.fetchone()['latest']
+            logger.info(f"   📊 Latest order date: {latest}")
+
+    except Exception as e:
+        logger.warning(f"   ⚠️  Could not fetch order counts: {e}")
+
     return statements_executed, errors
 
 
@@ -368,20 +397,28 @@ def run_sync():
         # Sync Categories/Products
         logger.info("-" * 40)
         logger.info("PHASE 1: Categories/Products")
+        logger.info("-" * 40)
         cat_key = get_latest_backup_file(CATEGORIES_PRODUCTS_PREFIX)
         if cat_key:
+            logger.info(f"🔄 Syncing Categories/Products from: {cat_key}")
             stmts, errs = stream_and_execute(cat_key, conn, cursor, "Categories/Products")
             total_statements += stmts
             total_errors += errs
+        else:
+            logger.error("❌ No Categories/Products backup file found!")
 
         # Sync Orders
         logger.info("-" * 40)
         logger.info("PHASE 2: Orders/Customers")
+        logger.info("-" * 40)
         orders_key = get_latest_backup_file(ORDERS_PREFIX)
         if orders_key:
+            logger.info(f"🔄 Syncing Orders/Customers from: {orders_key}")
             stmts, errs = stream_and_execute(orders_key, conn, cursor, "Orders/Customers")
             total_statements += stmts
             total_errors += errs
+        else:
+            logger.error("❌ No Orders/Customers backup file found!")
 
         cursor.execute("SHOW TABLES")
         tables = cursor.fetchall()
