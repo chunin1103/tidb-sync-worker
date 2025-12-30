@@ -18,6 +18,20 @@ This unified application hosts:
    - GET  /AgentGarden/sessions        - Get active sessions
    - And all other Agent Garden routes...
 
+3. Claude Task Queue (mounted at /AgentGarden/tasks)
+   - POST /AgentGarden/tasks/create         - Create new task
+   - GET  /AgentGarden/tasks/ready          - Get tasks ready for execution
+   - POST /AgentGarden/tasks/<id>/start     - Mark task as in progress
+   - POST /AgentGarden/tasks/<id>/complete  - Mark task as completed
+   - POST /AgentGarden/tasks/<id>/fail      - Mark task as failed
+   - GET  /AgentGarden/tasks/<id>           - Get task details
+   - GET  /AgentGarden/tasks/list           - List all tasks
+
+4. Wiki Viewer (mounted at /wiki)
+   - GET  /wiki/              - Workflow overview
+   - GET  /wiki/browse        - File browser
+   - GET  /wiki/view/<path>   - Markdown viewer with Mermaid diagrams
+
 Environment Variables:
 - PORT: Server port (default: 8080)
 - TIDB_HOST, TIDB_PORT, TIDB_USER, TIDB_PASSWORD, TIDB_DATABASE
@@ -27,7 +41,12 @@ Environment Variables:
 import os
 import sys
 import logging
+from pathlib import Path
 from flask import Flask, jsonify
+from dotenv import load_dotenv
+
+# Load environment variables from agent_garden/.env
+load_dotenv(Path(__file__).parent / 'agent_garden' / '.env')
 
 # Configure logging
 logging.basicConfig(
@@ -188,6 +207,278 @@ except Exception as e:
     traceback.print_exc()
 
 # =============================================================================
+# CLAUDE TASK QUEUE ENDPOINTS (Mounted at /AgentGarden/tasks)
+# =============================================================================
+
+@app.route('/AgentGarden/tasks/create', methods=['POST'])
+def create_claude_task_endpoint():
+    """
+    Create a new Claude task
+    Called by Gemini when user requests a task
+    """
+    try:
+        from flask import request
+        from agent_garden.src.core.database import get_db
+        from agent_garden.src.core.database_claude_tasks import create_claude_task
+        from celery.schedules import crontab
+
+        data = request.json
+
+        db = get_db()
+        if not db:
+            return jsonify({'success': False, 'error': 'Database not available'}), 500
+
+        # Create task in database
+        task_id = create_claude_task(
+            db,
+            task_type=data['task_type'],
+            task_json=data['task_json'],
+            schedule_cron=data.get('schedule_cron'),
+            created_by=data.get('created_by', 'gemini')
+        )
+
+        if not task_id:
+            db.close()
+            return jsonify({'success': False, 'error': 'Failed to create task'}), 500
+
+        # If scheduled, register with Celery Beat
+        scheduled = False
+        if data.get('schedule_cron'):
+            try:
+                from agent_garden.src.scheduling.celery_app import celery_app
+
+                # Parse cron expression "minute hour day month day_of_week"
+                parts = data['schedule_cron'].split()
+                schedule_config = {
+                    'minute': parts[0] if len(parts) > 0 else '*',
+                    'hour': parts[1] if len(parts) > 1 else '*',
+                    'day_of_month': parts[2] if len(parts) > 2 else '*',
+                    'month_of_year': parts[3] if len(parts) > 3 else '*',
+                    'day_of_week': parts[4] if len(parts) > 4 else '*',
+                }
+
+                # Add to Celery Beat schedule
+                celery_app.conf.beat_schedule[f'claude-task-{task_id}'] = {
+                    'task': 'autonomous_agents.trigger_claude_task',
+                    'schedule': crontab(**schedule_config),
+                    'args': (task_id,)
+                }
+
+                scheduled = True
+                logger.info(f"📅 Scheduled Claude task {task_id}: {data['schedule_cron']}")
+
+            except Exception as e:
+                logger.error(f"Failed to schedule task {task_id}: {e}")
+
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'task_id': task_id,
+            'message': 'Task created successfully',
+            'scheduled': scheduled
+        })
+
+    except Exception as e:
+        logger.error(f"Error creating Claude task: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/tasks/ready', methods=['GET'])
+def get_ready_claude_tasks():
+    """
+    Get tasks ready for Claude executor to process
+    Claude executor polls this endpoint
+    """
+    try:
+        from agent_garden.src.core.database import get_db
+        from agent_garden.src.core.database_claude_tasks import get_ready_tasks
+
+        db = get_db()
+        if not db:
+            return jsonify({'success': False, 'error': 'Database not available'}), 500
+
+        tasks = get_ready_tasks(db)
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'tasks': tasks,
+            'count': len(tasks)
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting ready tasks: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/tasks/<int:task_id>/start', methods=['POST'])
+def start_claude_task_endpoint(task_id):
+    """
+    Mark task as in_progress
+    Called by Claude executor when starting execution
+    """
+    try:
+        from agent_garden.src.core.database import get_db
+        from agent_garden.src.core.database_claude_tasks import start_claude_task
+
+        db = get_db()
+        if not db:
+            return jsonify({'success': False, 'error': 'Database not available'}), 500
+
+        success = start_claude_task(db, task_id)
+        db.close()
+
+        if success:
+            logger.info(f"📋 Claude started task {task_id}")
+            return jsonify({'success': True, 'message': 'Task started'})
+        else:
+            return jsonify({'success': False, 'error': 'Task not found'}), 404
+
+    except Exception as e:
+        logger.error(f"Error starting task {task_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/tasks/<int:task_id>/complete', methods=['POST'])
+def complete_claude_task_endpoint(task_id):
+    """
+    Mark task as completed
+    Called by Claude executor when task finishes successfully
+    """
+    try:
+        from flask import request
+        from agent_garden.src.core.database import get_db
+        from agent_garden.src.core.database_claude_tasks import complete_claude_task
+
+        data = request.json or {}
+
+        db = get_db()
+        if not db:
+            return jsonify({'success': False, 'error': 'Database not available'}), 500
+
+        success = complete_claude_task(
+            db,
+            task_id,
+            result_path=data.get('result_path'),
+            result_summary=data.get('result_summary')
+        )
+        db.close()
+
+        if success:
+            logger.info(f"✅ Claude completed task {task_id}: {data.get('result_summary', 'No summary')}")
+            return jsonify({'success': True, 'message': 'Task completed'})
+        else:
+            return jsonify({'success': False, 'error': 'Task not found'}), 404
+
+    except Exception as e:
+        logger.error(f"Error completing task {task_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/tasks/<int:task_id>/fail', methods=['POST'])
+def fail_claude_task_endpoint(task_id):
+    """
+    Mark task as failed
+    Called by Claude executor when task fails
+    """
+    try:
+        from flask import request
+        from agent_garden.src.core.database import get_db
+        from agent_garden.src.core.database_claude_tasks import fail_claude_task
+
+        data = request.json or {}
+
+        db = get_db()
+        if not db:
+            return jsonify({'success': False, 'error': 'Database not available'}), 500
+
+        success = fail_claude_task(
+            db,
+            task_id,
+            error_log=data.get('error_log', 'Unknown error')
+        )
+        db.close()
+
+        if success:
+            logger.error(f"❌ Claude task {task_id} failed: {data.get('error_log', 'Unknown')}")
+            return jsonify({'success': True, 'message': 'Task marked as failed'})
+        else:
+            return jsonify({'success': False, 'error': 'Task not found'}), 404
+
+    except Exception as e:
+        logger.error(f"Error failing task {task_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/tasks/<int:task_id>', methods=['GET'])
+def get_claude_task_details(task_id):
+    """
+    Get detailed information about a specific task
+    """
+    try:
+        from agent_garden.src.core.database import get_db
+        from agent_garden.src.core.database_claude_tasks import get_claude_task, get_task_execution_history
+
+        db = get_db()
+        if not db:
+            return jsonify({'success': False, 'error': 'Database not available'}), 500
+
+        task = get_claude_task(db, task_id)
+
+        if not task:
+            db.close()
+            return jsonify({'success': False, 'error': 'Task not found'}), 404
+
+        # Get execution history
+        history = get_task_execution_history(db, task_id, limit=10)
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'task': task,
+            'execution_history': history
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting task {task_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/tasks/list', methods=['GET'])
+def list_claude_tasks():
+    """
+    List all tasks with optional filtering
+    Query params: status, task_type, limit
+    """
+    try:
+        from flask import request
+        from agent_garden.src.core.database import get_db
+        from agent_garden.src.core.database_claude_tasks import get_all_claude_tasks
+
+        status = request.args.get('status')
+        task_type = request.args.get('task_type')
+        limit = request.args.get('limit', 100, type=int)
+
+        db = get_db()
+        if not db:
+            return jsonify({'success': False, 'error': 'Database not available'}), 500
+
+        tasks = get_all_claude_tasks(db, status=status, task_type=task_type, limit=limit)
+        db.close()
+
+        return jsonify({
+            'success': True,
+            'tasks': tasks,
+            'count': len(tasks)
+        })
+
+    except Exception as e:
+        logger.error(f"Error listing tasks: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
 # ROOT ENDPOINT (Unified Health Check)
 # =============================================================================
 
@@ -245,6 +536,15 @@ def unified_health():
                 'ui': '/AgentGarden/',
                 'execute': '/AgentGarden/execute_agent',
                 'sessions': '/AgentGarden/sessions'
+            },
+            'claude_task_queue': {
+                'create': '/AgentGarden/tasks/create',
+                'ready': '/AgentGarden/tasks/ready',
+                'start': '/AgentGarden/tasks/<id>/start',
+                'complete': '/AgentGarden/tasks/<id>/complete',
+                'fail': '/AgentGarden/tasks/<id>/fail',
+                'details': '/AgentGarden/tasks/<id>',
+                'list': '/AgentGarden/tasks/list'
             },
             'sync_worker': {
                 'status': '/status',
