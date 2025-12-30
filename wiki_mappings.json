@@ -1,5 +1,216 @@
 {
   "version": "1.0",
-  "last_modified": "2025-12-29T00:00:00Z",
-  "files": {}
+  "last_modified": "2025-12-30T00:00:00Z",
+  "files": {
+    "03_Decision_Workflows/Cut_Sheet_Logic_Decision_Tree.md": [
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "A",
+        "section_id": "overview",
+        "color": "#ffeb3b",
+        "label": "Overview",
+        "preview_text": "This workflow determines the most efficient cutting strategy when a size is below target inventory. It evaluates: Which source size to cut from, How many pieces to cut, Whether cutting is viable or ordering is better, Impact on source size inventory after cutting"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "B",
+        "section_id": "cut-strategy-decision-matrix",
+        "color": "#ff9800",
+        "label": "Cut Strategy Matrix",
+        "preview_text": "Oceanside COE96 Strategy and Bullseye COE90 Strategy tables showing source priorities, pieces per cut, and minimum source YIS thresholds for each target size"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "C",
+        "section_id": "oceanside-coe96-strategy",
+        "color": "#f44336",
+        "label": "Oceanside Strategy",
+        "preview_text": "Always cut from the largest available source size to maximize efficiency. Exception: Can zero out 24×24 (only 5.9% of sales) to optimize smaller sizes."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "D",
+        "section_id": "bullseye-coe90-strategy",
+        "color": "#e91e63",
+        "label": "Bullseye Strategy",
+        "preview_text": "ALWAYS check cascade opportunities FIRST (most common error!). Critical Constraint: For 3mm glass, 2 Half Sheets = 1 Full Sheet equivalent. Must verify Half Sheet ends with ≥0.40 YIS after cascade."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "H",
+        "section_id": "example-3-bullseye-with-cascade-complex",
+        "color": "#9c27b0",
+        "label": "Cascade Example",
+        "preview_text": "Check cascade: 2 Half = 1 Full for 3mm. Calculate cascade: Need 1 Full (yields 4× 10×10). Use 2 Half sheets → Creates 1 Full equivalent. Check Half after cascade must still be > 0.40 YIS. Without checking cascade, would have incorrectly ordered Full sheet!"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "P",
+        "section_id": "impact-calculation-formulas",
+        "color": "#3f51b5",
+        "label": "Impact Formulas",
+        "preview_text": "Step 1: Calculate Pieces Needed = Target Quantity - Current Quantity. Step 2: Calculate Source Sheets Required = CEIL(Pieces Needed ÷ Pieces per Cut). Step 3: Validate Source Inventory After Cut. Step 4: Calculate Target Inventory After Cut."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "Q",
+        "section_id": "impact-calculation-formulas",
+        "color": "#3f51b5",
+        "label": "Impact Formulas",
+        "preview_text": "Step 1: Calculate Pieces Needed = Target Quantity - Current Quantity. Step 2: Calculate Source Sheets Required = CEIL(Pieces Needed ÷ Pieces per Cut). Step 3: Validate Source Inventory After Cut. Step 4: Calculate Target Inventory After Cut."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "R",
+        "section_id": "step-3-validate-source-inventory-after-cut",
+        "color": "#2196f3",
+        "label": "Validate Source",
+        "preview_text": "Source After Cut = Current Source Qty - Sheets Required. Source YIS After = Source After Cut ÷ (Source Units Sold ÷ 12). Example: 1.0 years > 0.20 minimum → Safe to cut"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "S",
+        "section_id": "step-3-validate-source-inventory-after-cut",
+        "color": "#2196f3",
+        "label": "Validate Source",
+        "preview_text": "Source After Cut = Current Source Qty - Sheets Required. Source YIS After = Source After Cut ÷ (Source Units Sold ÷ 12). Example: 1.0 years > 0.20 minimum → Safe to cut"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "T",
+        "section_id": "step-1-calculate-pieces-needed",
+        "color": "#00bcd4",
+        "label": "Calculate Pieces",
+        "preview_text": "Target Quantity = (Units Sold ÷ 12) × Target YIS × 12. Pieces Needed = Target Quantity - Current Quantity. Example: Target Quantity = 114, Pieces Needed = 114 - 50 = 64 pieces"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "V",
+        "section_id": "step-1-calculate-pieces-needed",
+        "color": "#00bcd4",
+        "label": "Calculate Pieces",
+        "preview_text": "Target Quantity = (Units Sold ÷ 12) × Target YIS × 12. Pieces Needed = Target Quantity - Current Quantity. Example: Target Quantity = 114, Pieces Needed = 114 - 50 = 64 pieces"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "U",
+        "section_id": "critical-errors-to-prevent",
+        "color": "#009688",
+        "label": "Safety Checks",
+        "preview_text": "DON'T: Cut Bullseye Full Sheet to zero, Cut Bullseye Half Sheet below 0.40 YIS, Cut source size when already at/below minimum, Cut target size that has zero sales velocity, Forget to check cascade opportunities (Bullseye 3mm)"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "W",
+        "section_id": "step-4-calculate-target-inventory-after-cut",
+        "color": "#4caf50",
+        "label": "Target After Cut",
+        "preview_text": "Target After Cut = Current Target Qty + (Sheets Cut × Yield). Target YIS After = Target After Cut ÷ (Target Units Sold ÷ 12). Example: 0.35 years = Target reached!"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "Y",
+        "section_id": "example-1-oceanside-standard-cut-safe",
+        "color": "#8bc34a",
+        "label": "Standard Cut Example",
+        "preview_text": "Decision: Cut 4 sheets of 24×24 → 64 pieces of 6×6. Result: 6×6: 50 → 114 pieces (0.35 YIS) ✓ Target reached. 24×24: 8 → 4 sheets (1.0 YIS) ✓ Still above minimum"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "L",
+        "section_id": "example-4-no-cutting-option-vendor-order",
+        "color": "#ff5722",
+        "label": "Vendor Order Example",
+        "preview_text": "Decision: Don't cut, order all 93 from vendor. Result: 12×12: Order 93 from vendor. 24×24: Keep 2 sheets for future use (don't waste on minimal yield)"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "M",
+        "section_id": "example-3-bullseye-with-cascade-complex",
+        "color": "#9c27b0",
+        "label": "Cascade Half→Full",
+        "preview_text": "Decision: Cascade 2 Half → 1 Full, then cut Full → 4× 10×10. Result: 10×10: 30 + 4 = 34 pieces. Half: 18 → 16 pieces (0.65 → 0.58 YIS) ✓ Still well above 0.40 minimum. Critical: Without checking cascade, would have incorrectly ordered Full sheet!"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "AC",
+        "section_id": "success-metrics",
+        "color": "#03a9f4",
+        "label": "Success Metrics",
+        "preview_text": "Effective Cut Sheet: ✅ Brings below-target sizes to goal YIS, ✅ Uses overstocked sizes efficiently, ✅ Doesn't violate minimum YIS thresholds, ✅ Checked cascade opportunities (Bullseye), ✅ Minimizes vendor orders"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "E",
+        "section_id": "oceanside-coe96-strategy",
+        "color": "#f44336",
+        "label": "Cut from 24×24",
+        "preview_text": "For 6×6: Cut from 24×24 (16 pieces per cut, min source YIS 0.20). For 6×12: Cut from 24×24 (8 pieces per cut). For 12×12: Cut from 24×24 (4 pieces per cut). Prefer largest source."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "G",
+        "section_id": "bullseye-coe90-strategy",
+        "color": "#e91e63",
+        "label": "Cut from Full",
+        "preview_text": "For 5×10 and 10×10: Cut from Full Sheet or Cascade Half→Full (required for 3mm). Min source YIS 0.25. Never zero out Full sheets."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "F",
+        "section_id": "oceanside-coe96-strategy",
+        "color": "#f44336",
+        "label": "12×12 Available?",
+        "preview_text": "For 6×6: Cut from 12×12 (4 pieces per cut, min source YIS 0.20). For 6×12: Cut from 12×12 (2 pieces per cut). Cannot cut 12×12 from smaller sizes."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "N",
+        "section_id": "bullseye-coe90-strategy",
+        "color": "#e91e63",
+        "label": "10×10 Available?",
+        "preview_text": "For 5×5: Cut from 10×10 or Full (via cascade). Check Half cascade for 3mm. Min source YIS 0.25, never zero. 10×10 is a popular size - protect it."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "I",
+        "section_id": "oceanside-coe96-strategy",
+        "color": "#f44336",
+        "label": "Cut from 12×12",
+        "preview_text": "Option 2 for smaller sizes. 6×6 from 12×12: 4 pieces per cut. 6×12 from 12×12: 2 pieces per cut. Min source YIS 0.20."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "O",
+        "section_id": "bullseye-coe90-strategy",
+        "color": "#e91e63",
+        "label": "Cut from 10×10",
+        "preview_text": "For 5×5 target: Cut from 10×10 as first option. Min source YIS 0.25. Protect popular 10×10 size - don't over-cut."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "K",
+        "section_id": "oceanside-coe96-strategy",
+        "color": "#f44336",
+        "label": "Cut from 6×12",
+        "preview_text": "Option 3: Cut from 6×12 limited to 6×6 only (2 pieces per cut). Min source YIS 0.20. Last resort option."
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "Z",
+        "section_id": "example-2-oceanside-zero-out-strategy-aggressive",
+        "color": "#ff9800",
+        "label": "Partial Cut + Order",
+        "preview_text": "Result: 6×12: 20 + 40 = 60 pieces (still below target, order 29 from vendor). 24×24: 5 → 0 sheets ✓ Exception applies (can zero out 24×24 for Oceanside)"
+      },
+      {
+        "diagram_id": "diagram_0",
+        "node_id": "X",
+        "section_id": "critical-errors-to-prevent",
+        "color": "#009688",
+        "label": "Flag Partial Cut",
+        "preview_text": "When source is insufficient, either reduce cut quantity to stay above minimum YIS or skip cutting entirely and order from vendor instead."
+      }
+    ]
+  }
 }
