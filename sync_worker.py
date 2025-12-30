@@ -7,12 +7,13 @@ Runs as a single Render Web Service providing:
 2. MCP server for querying TiDB from Claude
 
 Endpoints:
-- GET  /         - Health check (combined status)
-- GET  /status   - Detailed sync status and schedule
-- POST /sync     - Trigger manual sync
-- POST /mcp      - MCP endpoint for Claude
-- GET  /tools    - List available MCP tools
-- POST /query    - Direct query endpoint for testing
+- GET  /             - Health check (combined status)
+- GET  /status       - Detailed sync status (HTML dashboard)
+- GET  /status/json  - Detailed sync status (JSON API)
+- POST /sync         - Trigger manual sync
+- POST /mcp          - MCP endpoint for Claude
+- GET  /tools        - List available MCP tools
+- POST /query        - Direct query endpoint for testing
 """
 
 import boto3
@@ -29,7 +30,7 @@ import time
 from datetime import datetime, date
 from decimal import Decimal
 from http.client import IncompleteRead
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from pymysql.constants import CLIENT
@@ -641,7 +642,44 @@ def health():
 
 @app.route('/status')
 def status():
-    """Get detailed sync status."""
+    """Get detailed sync status - HTML view."""
+    scheduler_jobs = []
+    for job in scheduler.get_jobs():
+        # Handle both APScheduler 3.x and 4.x API differences
+        next_run = None
+        if hasattr(job, 'next_run_time'):
+            # APScheduler 3.x
+            next_run = job.next_run_time.isoformat() if job.next_run_time else None
+        elif hasattr(job, 'trigger'):
+            # APScheduler 4.x - get next fire time from trigger
+            try:
+                next_fire = job.trigger.get_next_fire_time(None, datetime.now())
+                next_run = next_fire.isoformat() if next_fire else None
+            except:
+                next_run = 'unknown'
+
+        scheduler_jobs.append({
+            'id': job.id,
+            'next_run': next_run,
+            'name': getattr(job, 'name', job.id)
+        })
+
+    # Render HTML template
+    return render_template('sync_status.html',
+        sync_state=sync_state,
+        scheduled_jobs=scheduler_jobs,
+        environment={
+            'tidb_host': TIDB_CONFIG['host'],
+            'tidb_database': TIDB_CONFIG['database'],
+            'idrive_endpoint': IDRIVE_ENDPOINT,
+            's3_bucket': S3_BUCKET
+        }
+    )
+
+
+@app.route('/status/json')
+def status_json():
+    """Get detailed sync status - JSON API."""
     scheduler_jobs = []
     for job in scheduler.get_jobs():
         # Handle both APScheduler 3.x and 4.x API differences

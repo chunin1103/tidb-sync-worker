@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TiDB Sync Status | Claude Tools</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 14px;
+        }
+
+        .nav-links {
+            margin-top: 16px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .nav-link {
+            color: #667eea;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #667eea;
+            transition: all 0.2s;
+        }
+
+        .nav-link:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .status-error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .status-running {
+            background: #bee3f8;
+            color: #2c5282;
+            animation: pulse 2s infinite;
+        }
+
+        .status-idle {
+            background: #e2e8f0;
+            color: #4a5568;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: #718096;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .info-value {
+            color: #2d3748;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: right;
+        }
+
+        .info-value code {
+            background: #edf2f7;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: 'Monaco', 'Courier New', monospace;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s ease;
+            animation: progress-animation 2s infinite;
+        }
+
+        @keyframes progress-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .job-item {
+            background: #f7fafc;
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            border-left: 4px solid #667eea;
+        }
+
+        .job-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .job-name {
+            font-weight: 600;
+            color: #2d3748;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+
+        .job-time {
+            color: #718096;
+            font-size: 13px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+            text-align: center;
+            display: inline-block;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+        }
+
+        .btn-secondary:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        .timestamp {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .phase-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .phase-phase1 { background: #667eea; }
+        .phase-phase2 { background: #764ba2; }
+        .phase-idle { background: #cbd5e0; }
+
+        .env-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .env-table td {
+            padding: 10px 0;
+            font-size: 13px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .env-table td:first-child {
+            color: #718096;
+            width: 40%;
+        }
+
+        .env-table td:last-child {
+            color: #2d3748;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 32px;
+            color: #a0aec0;
+            font-size: 14px;
+        }
+
+        .auto-refresh {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+            padding: 12px;
+            background: #edf2f7;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+
+        .auto-refresh input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .icon {
+            font-size: 20px;
+        }
+
+        .footer {
+            text-align: center;
+            color: white;
+            margin-top: 32px;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🔄 TiDB Sync Status</h1>
+            <p>Real-time monitoring for MySQL → TiDB synchronization</p>
+            <div class="nav-links">
+                <a href="/" class="nav-link">🏠 Home</a>
+                <a href="/wiki/" class="nav-link">📚 Wiki</a>
+                <a href="/AgentGarden/" class="nav-link">🌱 Agent Garden</a>
+                <a href="/status" class="nav-link" style="background: #667eea; color: white;">📊 Status</a>
+            </div>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid">
+            <!-- Current Sync State -->
+            <div class="card">
+                <h2><span class="icon">⚡</span> Current State</h2>
+
+                {% if sync_state.is_running %}
+                    <span class="status-badge status-running">
+                        <span class="phase-indicator phase-{{ sync_state.current_phase }}"></span>
+                        Running
+                    </span>
+                {% elif sync_state.last_status == 'success' %}
+                    <span class="status-badge status-success">✓ Success</span>
+                {% elif sync_state.last_status == 'error' %}
+                    <span class="status-badge status-error">✗ Error</span>
+                {% else %}
+                    <span class="status-badge status-idle">⏸ Idle</span>
+                {% endif %}
+
+                <div style="margin-top: 20px;">
+                    {% if sync_state.is_running %}
+                        <div class="info-row">
+                            <span class="info-label">Current Phase</span>
+                            <span class="info-value">{{ sync_state.current_phase or 'Starting...' }}</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Progress</span>
+                            <span class="info-value">{{ sync_state.progress or '0%' }}</span>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" style="width: {{ sync_state.progress or '0%' }}"></div>
+                        </div>
+                    {% endif %}
+
+                    <div class="info-row">
+                        <span class="info-label">Last Run</span>
+                        <span class="info-value timestamp">
+                            {{ sync_state.last_run or 'Never' }}
+                        </span>
+                    </div>
+
+                    <div class="info-row">
+                        <span class="info-label">Last Status</span>
+                        <span class="info-value">
+                            {% if sync_state.last_status == 'success' %}
+                                <span style="color: #22543d;">✓ Success</span>
+                            {% elif sync_state.last_status == 'error' %}
+                                <span style="color: #742a2a;">✗ Error</span>
+                            {% else %}
+                                <span style="color: #718096;">—</span>
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    {% if sync_state.error_message %}
+                        <div class="info-row">
+                            <span class="info-label">Error</span>
+                            <span class="info-value" style="color: #742a2a; font-size: 12px;">
+                                {{ sync_state.error_message }}
+                            </span>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="action-buttons">
+                    <button class="btn btn-primary" onclick="triggerSync()"
+                            {% if sync_state.is_running %}disabled{% endif %}>
+                        🚀 Trigger Manual Sync
+                    </button>
+                    <button class="btn btn-secondary" onclick="location.reload()">
+                        🔄 Refresh
+                    </button>
+                </div>
+
+                <div class="auto-refresh">
+                    <input type="checkbox" id="autoRefresh" onchange="toggleAutoRefresh()">
+                    <label for="autoRefresh">Auto-refresh every 10 seconds</label>
+                </div>
+            </div>
+
+            <!-- Scheduled Jobs -->
+            <div class="card">
+                <h2><span class="icon">📅</span> Scheduled Jobs</h2>
+
+                {% if scheduled_jobs %}
+                    {% for job in scheduled_jobs %}
+                        <div class="job-item">
+                            <div class="job-name">{{ job.name or job.id }}</div>
+                            <div class="job-time">
+                                <strong>Next run:</strong>
+                                <span class="timestamp">{{ job.next_run or 'Not scheduled' }}</span>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        No scheduled jobs found
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Environment Configuration -->
+        <div class="card">
+            <h2><span class="icon">⚙️</span> Environment Configuration</h2>
+
+            <table class="env-table">
+                <tr>
+                    <td>TiDB Host</td>
+                    <td><code>{{ environment.tidb_host }}</code></td>
+                </tr>
+                <tr>
+                    <td>TiDB Database</td>
+                    <td><code>{{ environment.tidb_database }}</code></td>
+                </tr>
+                <tr>
+                    <td>S3 Endpoint</td>
+                    <td><code>{{ environment.idrive_endpoint }}</code></td>
+                </tr>
+                <tr>
+                    <td>S3 Bucket</td>
+                    <td><code>{{ environment.s3_bucket }}</code></td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Powered by Flask + APScheduler + TiDB | <a href="https://github.com" style="color: white;">Documentation</a></p>
+        </div>
+    </div>
+
+    <script>
+        let autoRefreshInterval = null;
+
+        function triggerSync() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.textContent = '⏳ Starting...';
+
+            fetch('/sync', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => {
+                    alert(data.message || 'Sync started!');
+                    setTimeout(() => location.reload(), 2000);
+                })
+                .catch(err => {
+                    alert('Error: ' + err.message);
+                    btn.disabled = false;
+                    btn.textContent = '🚀 Trigger Manual Sync';
+                });
+        }
+
+        function toggleAutoRefresh() {
+            const checkbox = document.getElementById('autoRefresh');
+
+            if (checkbox.checked) {
+                // Enable auto-refresh every 10 seconds
+                autoRefreshInterval = setInterval(() => {
+                    location.reload();
+                }, 10000);
+            } else {
+                // Disable auto-refresh
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+            }
+
+            // Save preference to localStorage
+            localStorage.setItem('autoRefresh', checkbox.checked);
+        }
+
+        // Restore auto-refresh preference on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const autoRefresh = localStorage.getItem('autoRefresh') === 'true';
+            if (autoRefresh) {
+                document.getElementById('autoRefresh').checked = true;
+                toggleAutoRefresh();
+            }
+        });
+    </script>
+</body>
+</html>
