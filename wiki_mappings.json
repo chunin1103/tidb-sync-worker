@@ -2,7 +2,8 @@
   "version": "1.0",
   "last_modified": "2025-12-30T00:00:00Z",
   "files": {
-    "03_Decision_Workflows/Cut_Sheet_Logic_Decision_Tree.md": [
+    "03_Decision_Workflows/Cut_Sheet_Logic_Decision_Tree.md": {
+      "mappings": [
       {
         "diagram_id": "diagram_0",
         "node_id": "A",
@@ -211,6 +212,7 @@
         "label": "Flag Partial Cut",
         "preview_text": "When source is insufficient, either reduce cut quantity to stay above minimum YIS or skip cutting entirely and order from vendor instead."
       }
-    ]
+      ]
+    }
   }
 }
