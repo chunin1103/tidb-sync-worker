@@ -103,7 +103,7 @@ def execute_query(sql, params=None):
 MCP_TOOLS = [
     {
         "name": "query",
-        "description": """Execute a SELECT query on the TiDB database. Only read-only queries are allowed.
+                "description": """Execute a SELECT query on the TiDB database. Only read-only queries are allowed.
 
 ⚠️ CRITICAL: Before writing SQL, you MUST read the schema guide at:
    Production/wiki/08_Database_Schema/TIDB_SCHEMA_GUIDE.md
@@ -189,6 +189,21 @@ Key Rules to Remember:
         }
     }
 ]
+
+
+def handle_tool_call(tool_name, arguments):
+    """Handle a tool call and return the result."""
+
+    if tool_name == "query":
+        sql = arguments.get("sql", "")
+        result = execute_query(sql)
+        return json.dumps(result, default=json_serial)
+
+    elif tool_name == "list_tables":
+        result = execute_query("SHOW TABLES")
+        if 'rows' in result:
+            # Extract just table names
+            tables = [list(row.values())[0] for row in result['rows']]
             return json.dumps({'tables': tables, 'count': len(tables)})
         return json.dumps(result)
 
