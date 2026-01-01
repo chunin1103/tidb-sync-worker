@@ -234,7 +234,7 @@
                             {{ product.Quantity_in_Stock }}
                             {% endif %}
                         </td>
-                        <td>{{ "%.2f"|format(product.Years_in_Stock) if product.Years_in_Stock else "N/A" }}</td>
+                        <td>{{ "%.2f"|format(product.Years_in_Stock|float) if product.Years_in_Stock else "N/A" }}</td>
                         <td class="reorder-qty">{{ product.Reorder_Quantity }}</td>
                         <td style="font-size: 12px; color: #666;">{{ product.Reorder_Reason[:40] }}...</td>
                     </tr>
