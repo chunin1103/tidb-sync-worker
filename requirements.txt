@@ -24,3 +24,6 @@ python-dotenv>=1.0.0
 # Documentation (Wiki Viewer)
 markdown>=3.5.0
 pymdown-extensions>=10.0
+
+# Data Processing (Reports Viewer)
+pandas>=2.0.0

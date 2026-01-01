@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clarification Questions - Reorder Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .session-info {
+            color: #666;
+            font-size: 14px;
+        }
+        .session-info strong {
+            color: #333;
+        }
+        .alert {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            color: #856404;
+        }
+        .alert-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .question-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        .question-card.priority-HIGH {
+            border-left-color: #f44336;
+        }
+        .question-card.priority-MEDIUM {
+            border-left-color: #ff9800;
+        }
+        .question-card.priority-LOW {
+            border-left-color: #4caf50;
+        }
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+        .priority-HIGH {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .priority-MEDIUM {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .priority-LOW {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .product-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        .product-id {
+            font-size: 12px;
+            color: #999;
+            margin-bottom: 15px;
+        }
+        .question-text {
+            color: #555;
+            font-size: 15px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+        .answer-section {
+            margin-top: 15px;
+        }
+        label {
+            display: block;
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        input[type="text"],
+        textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        input[type="text"]:focus,
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+        .suggested-answer {
+            background: #f8f9ff;
+            border: 1px solid #667eea;
+            border-radius: 6px;
+            padding: 10px;
+            margin-top: 8px;
+            font-size: 13px;
+        }
+        .suggested-label {
+            color: #667eea;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        .suggested-value {
+            color: #555;
+        }
+        .use-suggested-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .use-suggested-btn:hover {
+            background: #5568d3;
+        }
+        .submit-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-top: 30px;
+        }
+        .btn-submit {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        .question-count {
+            text-align: center;
+            color: #666;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤔 Clarification Needed</h1>
+            <div class="session-info">
+                <strong>Session:</strong> {{ session.csv_filename }}<br>
+                <strong>Total Products:</strong> {{ session.total_products }}<br>
+                <strong>Manufacturer:</strong> {{ session.manufacturer }}
+            </div>
+        </div>
+
+        <div class="alert">
+            <div class="alert-title">⚠️ Manual Review Required</div>
+            <p>We need your input on {{ questions|length }} product(s) to calculate accurate reorder quantities. Please answer the questions below.</p>
+        </div>
+
+        <form action="/reports/reorder-calculator/submit-answers/{{ session.session_id }}" method="POST">
+            {% for question in questions %}
+            <div class="question-card priority-{{ question.priority }}">
+                <span class="priority-badge priority-{{ question.priority }}">{{ question.priority }} Priority</span>
+
+                <div class="product-name">{{ question.product_name }}</div>
+                <div class="product-id">Product ID: {{ question.product_id }}</div>
+
+                <div class="question-text">{{ question.question_text }}</div>
+
+                <div class="answer-section">
+                    <label for="answer_{{ question.question_id }}">Your Answer:</label>
+                    <input type="text"
+                           id="answer_{{ question.question_id }}"
+                           name="answer_{{ question.question_id }}"
+                           value="{{ question.suggested_answer }}"
+                           required>
+
+                    <div class="suggested-answer">
+                        <div class="suggested-label">💡 Suggested Answer:</div>
+                        <div class="suggested-value">{{ question.suggested_answer }}</div>
+                    </div>
+                </div>
+
+                <input type="hidden" name="question_id[]" value="{{ question.question_id }}">
+            </div>
+            {% endfor %}
+
+            <div class="submit-section">
+                <div class="question-count">{{ questions|length }} question(s) to answer</div>
+                <button type="submit" class="btn-submit">Submit Answers & Continue</button>
+            </div>
+        </form>
+    </div>
+</body>
+</html>

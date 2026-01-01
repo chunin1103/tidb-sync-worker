@@ -61,6 +61,7 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 
 app = Flask(__name__)
+app.url_map.strict_slashes = False  # Allow both /path and /path/ to work
 logger.info("🚀 Initializing Unified Flask App...")
 
 # =============================================================================
@@ -148,7 +149,8 @@ try:
         __name__,
         url_prefix='/AgentGarden',
         template_folder=os.path.join(agent_garden_path, 'templates'),
-        static_folder=os.path.join(agent_garden_path, 'static') if os.path.exists(os.path.join(agent_garden_path, 'static')) else None
+        static_folder=os.path.join(agent_garden_path, 'static') if os.path.exists(os.path.join(agent_garden_path, 'static')) else None,
+        static_url_path='/static'  # Relative to blueprint prefix = /AgentGarden/static
     )
 
     # Copy all routes from garden_app to the blueprint
@@ -207,6 +209,53 @@ except Exception as e:
     traceback.print_exc()
 
 # =============================================================================
+# IMPORT AND REGISTER REPORTS VIEWER (Mounted at /reports)
+# =============================================================================
+
+try:
+    # Import reports viewer blueprint
+    from reports_viewer import reports_bp
+
+    # Register blueprint
+    app.register_blueprint(reports_bp)
+
+    logger.info("✅ Reports Viewer registered at /reports")
+    logger.info("   - GET  /reports/reorder-calculator           - Upload CSV")
+    logger.info("   - POST /reports/reorder-calculator/upload    - Process CSV")
+    logger.info("   - GET  /reports/reorder-calculator/questions - Clarification questions")
+    logger.info("   - GET  /reports/reorder-calculator/download  - Download results")
+
+except Exception as e:
+    logger.error(f"❌ Failed to import Reports Viewer: {e}")
+    logger.info("⚠️  Reports Viewer will not be available")
+    import traceback
+    traceback.print_exc()
+
+# =============================================================================
+# IMPORT AND REGISTER DECISION VALIDATION (Mounted at /decision-validation)
+# =============================================================================
+
+try:
+    # Import decision validation blueprint
+    from decision_validation import decision_validation_bp
+
+    # Register blueprint
+    app.register_blueprint(decision_validation_bp)
+
+    logger.info("✅ Decision Validation registered at /decision-validation")
+    logger.info("   - GET  /decision-validation/                     - Dashboard")
+    logger.info("   - GET  /decision-validation/workflow/<path>      - Workflow detail")
+    logger.info("   - GET  /decision-validation/clarifications       - Clarification questions")
+    logger.info("   - GET  /decision-validation/clarification/<id>   - Answer question")
+    logger.info("   - POST /decision-validation/api/submit           - Submit clarification")
+
+except Exception as e:
+    logger.error(f"❌ Failed to import Decision Validation: {e}")
+    logger.info("⚠️  Decision Validation will not be available")
+    import traceback
+    traceback.print_exc()
+
+# =============================================================================
 # CLAUDE TASK QUEUE ENDPOINTS (Mounted at /AgentGarden/tasks)
 # =============================================================================
 
@@ -215,12 +264,15 @@ def create_claude_task_endpoint():
     """
     Create a new Claude task
     Called by Gemini when user requests a task
+
+    Scheduling is handled by database polling:
+    - Immediate tasks: status='ready', picked up by executor on next poll
+    - Scheduled tasks: next_run_time calculated from schedule_cron, picked up when due
     """
     try:
         from flask import request
         from agent_garden.src.core.database import get_db
         from agent_garden.src.core.database_claude_tasks import create_claude_task
-        from celery.schedules import crontab
 
         data = request.json
 
@@ -228,7 +280,7 @@ def create_claude_task_endpoint():
         if not db:
             return jsonify({'success': False, 'error': 'Database not available'}), 500
 
-        # Create task in database
+        # Create task in database (scheduling handled by database_claude_tasks)
         task_id = create_claude_task(
             db,
             task_type=data['task_type'],
@@ -241,34 +293,12 @@ def create_claude_task_endpoint():
             db.close()
             return jsonify({'success': False, 'error': 'Failed to create task'}), 500
 
-        # If scheduled, register with Celery Beat
-        scheduled = False
-        if data.get('schedule_cron'):
-            try:
-                from agent_garden.src.scheduling.celery_app import celery_app
-
-                # Parse cron expression "minute hour day month day_of_week"
-                parts = data['schedule_cron'].split()
-                schedule_config = {
-                    'minute': parts[0] if len(parts) > 0 else '*',
-                    'hour': parts[1] if len(parts) > 1 else '*',
-                    'day_of_month': parts[2] if len(parts) > 2 else '*',
-                    'month_of_year': parts[3] if len(parts) > 3 else '*',
-                    'day_of_week': parts[4] if len(parts) > 4 else '*',
-                }
-
-                # Add to Celery Beat schedule
-                celery_app.conf.beat_schedule[f'claude-task-{task_id}'] = {
-                    'task': 'autonomous_agents.trigger_claude_task',
-                    'schedule': crontab(**schedule_config),
-                    'args': (task_id,)
-                }
-
-                scheduled = True
-                logger.info(f"📅 Scheduled Claude task {task_id}: {data['schedule_cron']}")
-
-            except Exception as e:
-                logger.error(f"Failed to schedule task {task_id}: {e}")
+        # Check if this is a scheduled task
+        scheduled = bool(data.get('schedule_cron'))
+        if scheduled:
+            logger.info(f"📅 Created scheduled Claude task {task_id}: {data['schedule_cron']}")
+        else:
+            logger.info(f"📋 Created immediate Claude task {task_id}")
 
         db.close()
 

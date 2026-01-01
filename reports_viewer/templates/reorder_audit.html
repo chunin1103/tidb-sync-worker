@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manual Edits Audit Log - Reorder Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .session-info {
+            color: #666;
+            font-size: 14px;
+        }
+        .audit-table {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            background: #f8f9ff;
+            padding: 12px;
+            text-align: left;
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+        tr:hover {
+            background: #f8f9ff;
+        }
+        .diff-positive {
+            color: #4caf50;
+            font-weight: 600;
+        }
+        .diff-negative {
+            color: #f44336;
+            font-weight: 600;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+        .empty-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📝 Manual Edits Audit Log</h1>
+            <div class="session-info">
+                <strong>Session:</strong> {{ session.csv_filename }}<br>
+                <strong>Session ID:</strong> {{ session.session_id }}
+            </div>
+        </div>
+
+        <div class="audit-table">
+            {% if edits %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Product ID</th>
+                        <th>Product Name</th>
+                        <th>Calculated Qty</th>
+                        <th>Manual Qty</th>
+                        <th>Difference</th>
+                        <th>Reason</th>
+                        <th>Edited By</th>
+                        <th>Edited At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for edit in edits %}
+                    <tr>
+                        <td>{{ edit.product_id }}</td>
+                        <td>{{ edit.product_name }}</td>
+                        <td>{{ edit.calculated_qty }}</td>
+                        <td>{{ edit.manual_qty }}</td>
+                        <td class="{% if edit.difference > 0 %}diff-positive{% elif edit.difference < 0 %}diff-negative{% endif %}">
+                            {% if edit.difference > 0 %}+{% endif %}{{ edit.difference }}
+                        </td>
+                        <td>{{ edit.reason or "—" }}</td>
+                        <td>{{ edit.edited_by }}</td>
+                        <td>{{ edit.edited_at }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <p><strong>No manual edits recorded</strong></p>
+                <p>All reorder quantities were accepted as calculated.</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
