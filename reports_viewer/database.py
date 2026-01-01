@@ -193,6 +193,78 @@ def get_answer(question_id: int) -> Optional[str]:
         db.close()
 
 
+def get_all_questions(limit: int = 100, answered: Optional[bool] = None, priority: Optional[str] = None) -> List[Dict]:
+    """
+    Get all questions across all sessions with optional filters
+
+    Args:
+        limit: Maximum number of questions to return
+        answered: If True, only answered; if False, only unanswered; if None, all
+        priority: Filter by priority ('HIGH', 'MEDIUM', 'LOW')
+
+    Returns:
+        List of question dictionaries with session info
+    """
+    db = get_db_session()
+    try:
+        conditions = []
+        params = {'limit': limit}
+
+        if answered is True:
+            conditions.append("q.client_answer IS NOT NULL")
+        elif answered is False:
+            conditions.append("q.client_answer IS NULL")
+
+        if priority:
+            conditions.append("q.priority = :priority")
+            params['priority'] = priority
+
+        where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
+
+        query = f"""
+            SELECT
+                q.question_id,
+                q.session_id,
+                q.product_id,
+                q.product_name,
+                q.priority,
+                q.question_text,
+                q.field_name,
+                q.suggested_answer,
+                q.client_answer,
+                q.answered_at,
+                q.created_at,
+                s.csv_filename,
+                s.manufacturer
+            FROM reorder_questions q
+            JOIN reorder_sessions s ON q.session_id = s.session_id
+            {where_clause}
+            ORDER BY q.created_at DESC
+            LIMIT :limit
+        """
+
+        results = db.execute(text(query), params).fetchall()
+
+        return [{
+            'question_id': r[0],
+            'session_id': r[1],
+            'product_id': r[2],
+            'product_name': r[3],
+            'priority': r[4],
+            'question_text': r[5],
+            'field_name': r[6],
+            'suggested_answer': r[7],
+            'client_answer': r[8],
+            'answered_at': r[9],
+            'created_at': r[10],
+            'csv_filename': r[11],
+            'manufacturer': r[12],
+            'status': 'Answered' if r[8] else 'Pending'
+        } for r in results]
+    finally:
+        db.close()
+
+
 # ============================================================================
 # MANUAL EDIT TRACKING
 # ============================================================================

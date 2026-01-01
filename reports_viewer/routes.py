@@ -11,7 +11,7 @@ from . import reports_bp
 from .decision_engine import OceansideCalculator, BullseyeCalculator
 from .database import (
     save_session, get_session, update_session_status,
-    save_question, get_unanswered_questions, save_answer,
+    save_question, get_unanswered_questions, get_all_questions, save_answer,
     save_manual_edit, get_manual_edits,
     track_question_for_learning
 )
@@ -307,3 +307,61 @@ def list_sessions():
     """List all calculation sessions"""
     # TODO: Implement session listing
     return jsonify({'message': 'Session listing not yet implemented'}), 501
+
+
+@reports_bp.route('/reorder-calculator/questions')
+def all_questions_dashboard():
+    """View all questions across all sessions with filters"""
+    # Get filter parameters
+    answered_filter = request.args.get('answered')  # 'yes', 'no', or None (all)
+    priority_filter = request.args.get('priority')  # 'HIGH', 'MEDIUM', 'LOW', or None
+    limit = int(request.args.get('limit', 100))
+
+    # Convert answered filter to boolean
+    answered = None
+    if answered_filter == 'yes':
+        answered = True
+    elif answered_filter == 'no':
+        answered = False
+
+    # Get questions from database
+    questions = get_all_questions(limit=limit, answered=answered, priority=priority_filter)
+
+    # Calculate stats
+    stats = {
+        'total': len(questions),
+        'answered': sum(1 for q in questions if q['status'] == 'Answered'),
+        'pending': sum(1 for q in questions if q['status'] == 'Pending'),
+        'high_priority': sum(1 for q in questions if q['priority'] == 'HIGH'),
+        'medium_priority': sum(1 for q in questions if q['priority'] == 'MEDIUM'),
+        'low_priority': sum(1 for q in questions if q['priority'] == 'LOW')
+    }
+
+    return render_template('all_questions.html',
+                          questions=questions,
+                          stats=stats,
+                          current_answered=answered_filter,
+                          current_priority=priority_filter)
+
+
+@reports_bp.route('/reorder-calculator/save-answer', methods=['POST'])
+def save_answer_from_dashboard():
+    """Save answer from the questions dashboard"""
+    try:
+        question_id = int(request.form.get('question_id'))
+        answer = request.form.get('answer', '').strip()
+
+        if not answer:
+            return jsonify({'error': 'Answer cannot be empty'}), 400
+
+        # Save answer
+        save_answer(question_id, answer)
+
+        # Track for learning
+        track_question_for_learning('dashboard_answer', f'Question {question_id}', answer)
+
+        # Redirect back to dashboard
+        return redirect(url_for('reports.all_questions_dashboard'))
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to save answer: {str(e)}'}), 500

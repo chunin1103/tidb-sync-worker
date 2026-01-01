@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>All Questions - Reorder Calculator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .filters {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .filter-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .filter-group label {
+            font-weight: 500;
+            color: #333;
+        }
+        .filter-group select {
+            padding: 8px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .filter-group button {
+            padding: 8px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .filter-group button:hover {
+            background: #5568d3;
+        }
+        .reset-btn {
+            background: #999 !important;
+        }
+        .reset-btn:hover {
+            background: #777 !important;
+        }
+        .questions-table {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        thead {
+            background: #f8f9fa;
+        }
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        td {
+            padding: 15px;
+            border-top: 1px solid #e0e0e0;
+        }
+        tbody tr:hover {
+            background: #f8f9fa;
+        }
+        .priority-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .priority-HIGH {
+            background: #ffebee;
+            color: #c62828;
+        }
+        .priority-MEDIUM {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .priority-LOW {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        .status-Answered {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .status-Pending {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        .product-name {
+            font-weight: 500;
+            color: #333;
+            font-size: 13px;
+        }
+        .product-id {
+            color: #999;
+            font-size: 11px;
+        }
+        .question-text {
+            color: #555;
+            font-size: 13px;
+            line-height: 1.5;
+            max-width: 400px;
+        }
+        .answer-box {
+            width: 100%;
+            padding: 8px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+        .answer-box:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        .answer-box[readonly] {
+            background: #f8f9fa;
+            color: #666;
+        }
+        .save-btn {
+            padding: 6px 14px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .save-btn:hover {
+            background: #45a049;
+        }
+        .timestamp {
+            color: #999;
+            font-size: 11px;
+        }
+        .no-questions {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        .no-questions h3 {
+            color: #999;
+            margin-bottom: 10px;
+        }
+        .manufacturer-tag {
+            display: inline-block;
+            padding: 3px 8px;
+            background: #667eea;
+            color: white;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 Questions Dashboard</h1>
+            <p class="subtitle">View and answer all reorder calculation questions</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total }}</div>
+                <div class="stat-label">Total Questions</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.pending }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.answered }}</div>
+                <div class="stat-label">Answered</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.high_priority }}</div>
+                <div class="stat-label">High Priority</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.medium_priority }}</div>
+                <div class="stat-label">Medium Priority</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.low_priority }}</div>
+                <div class="stat-label">Low Priority</div>
+            </div>
+        </div>
+
+        <div class="filters">
+            <form method="GET" action="/reports/reorder-calculator/questions">
+                <div class="filter-group">
+                    <label>Status:</label>
+                    <select name="answered">
+                        <option value="">All Questions</option>
+                        <option value="no" {% if current_answered == 'no' %}selected{% endif %}>Pending Only</option>
+                        <option value="yes" {% if current_answered == 'yes' %}selected{% endif %}>Answered Only</option>
+                    </select>
+
+                    <label>Priority:</label>
+                    <select name="priority">
+                        <option value="">All Priorities</option>
+                        <option value="HIGH" {% if current_priority == 'HIGH' %}selected{% endif %}>HIGH</option>
+                        <option value="MEDIUM" {% if current_priority == 'MEDIUM' %}selected{% endif %}>MEDIUM</option>
+                        <option value="LOW" {% if current_priority == 'LOW' %}selected{% endif %}>LOW</option>
+                    </select>
+
+                    <button type="submit">Apply Filters</button>
+                    <a href="/reports/reorder-calculator/questions"><button type="button" class="reset-btn">Reset</button></a>
+                </div>
+            </form>
+        </div>
+
+        {% if questions %}
+        <div class="questions-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Priority</th>
+                        <th>Status</th>
+                        <th>Manufacturer</th>
+                        <th>Product</th>
+                        <th>Question</th>
+                        <th>Suggested Answer</th>
+                        <th>Your Answer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for q in questions %}
+                    <tr>
+                        <td class="timestamp">{{ q.created_at.strftime('%Y-%m-%d %H:%M') if q.created_at else 'N/A' }}</td>
+                        <td><span class="priority-badge priority-{{ q.priority }}">{{ q.priority }}</span></td>
+                        <td><span class="status-badge status-{{ q.status }}">{{ q.status }}</span></td>
+                        <td><span class="manufacturer-tag">{{ q.manufacturer }}</span></td>
+                        <td>
+                            <div class="product-name">{{ q.product_name[:40] }}...</div>
+                            <div class="product-id">ID: {{ q.product_id }}</div>
+                        </td>
+                        <td>
+                            <div class="question-text">{{ q.question_text }}</div>
+                        </td>
+                        <td>
+                            <div style="font-size: 12px; color: #666;">{{ q.suggested_answer[:50] }}...</div>
+                        </td>
+                        <td>
+                            {% if q.status == 'Pending' %}
+                            <form action="/reports/reorder-calculator/save-answer" method="POST" style="display: flex; gap: 8px;">
+                                <input type="hidden" name="question_id" value="{{ q.question_id }}">
+                                <input type="text" name="answer" class="answer-box" placeholder="Type your answer..." value="{{ q.suggested_answer }}">
+                                <button type="submit" class="save-btn">Save</button>
+                            </form>
+                            {% else %}
+                            <input type="text" class="answer-box" value="{{ q.client_answer }}" readonly>
+                            <div class="timestamp">{{ q.answered_at.strftime('%Y-%m-%d %H:%M') if q.answered_at else '' }}</div>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="questions-table">
+            <div class="no-questions">
+                <h3>No questions found</h3>
+                <p>Try adjusting your filters or upload a CSV to generate questions.</p>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</body>
+</html>
