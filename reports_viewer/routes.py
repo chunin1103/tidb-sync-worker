@@ -8,7 +8,7 @@ import sqlite3
 import pandas as pd
 from flask import render_template, request, redirect, Response, jsonify, url_for
 from . import reports_bp
-from .decision_engine import OceansideCalculator
+from .decision_engine import OceansideCalculator, BullseyeCalculator
 from .database import (
     save_session, get_session, update_session_status,
     save_question, get_unanswered_questions, save_answer,
@@ -80,8 +80,12 @@ def upload_csv():
         # Save session to database
         save_session(session_id, csv_file.filename, len(df), manufacturer)
 
-        # Calculate reorder quantities
-        calculator = OceansideCalculator()
+        # Calculate reorder quantities - select calculator based on manufacturer
+        if manufacturer == 'Bullseye Glass':
+            calculator = BullseyeCalculator()
+        else:  # Default to Oceanside
+            calculator = OceansideCalculator()
+
         all_questions = []
 
         for idx, row in df.iterrows():
