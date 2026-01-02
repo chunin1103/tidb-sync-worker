@@ -1,10 +1,11 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "metadata": {
-    "title": "Reorder Decision Tree",
-    "description": "Generic decision tree with vendor placeholders for inventory reorder decisions",
+    "title": "Comprehensive Inventory Decision Tree",
+    "description": "Complete workflow from input data processing to output generation with vendor-specific logic",
     "created": "2026-01-02T00:00:00Z",
-    "last_modified": "2026-01-02T00:00:00Z"
+    "last_modified": "2026-01-03T00:00:00Z",
+    "phases": ["input", "analysis", "cascade", "decision", "calculation", "output"]
   },
   "tree": {
     "root": "START",
@@ -13,258 +14,820 @@
         "id": "START",
         "type": "start",
         "label": "Start Evaluation",
-        "description": "Begin product reorder decision process",
-        "position": { "x": 400, "y": 50 }
+        "description": "Begin inventory decision process for a product family",
+        "position": { "x": 500, "y": 30 },
+        "phase": "input"
       },
-      "CHECK_SALES": {
-        "id": "CHECK_SALES",
+
+      "LOAD_DATA": {
+        "id": "LOAD_DATA",
+        "type": "process",
+        "label": "Load Product Data",
+        "description": "Load product data from CSV/Excel. Required fields: Product_ID, Parent_ID, Name, Quantity_in_Stock, Purchased (annual sales)",
+        "position": { "x": 500, "y": 100 },
+        "phase": "input"
+      },
+
+      "CHECK_KEYWORD_FILTER": {
+        "id": "CHECK_KEYWORD_FILTER",
+        "type": "decision",
+        "label": "Contains Excluded Keywords?",
+        "description": "Check if product name contains: reserve, frit, stringers, noodles, pound, pack (case-insensitive)",
+        "condition": {
+          "field": "product_name",
+          "operator": "contains_any",
+          "value": ["reserve", "frit", "stringers", "noodles", "pound", "pack"]
+        },
+        "position": { "x": 500, "y": 180 },
+        "phase": "input"
+      },
+
+      "SKIP_EXCLUDED": {
+        "id": "SKIP_EXCLUDED",
+        "type": "result",
+        "label": "Skip: Excluded Product",
+        "description": "Product excluded from processing due to keyword filter (~44% of products filtered)",
+        "result": {
+          "action": "skip",
+          "priority": "NONE",
+          "reason": "Excluded by keyword filter",
+          "color": "#9e9e9e"
+        },
+        "position": { "x": 200, "y": 180 },
+        "phase": "input"
+      },
+
+      "CHECK_FAMILY_WELLSTOCKED": {
+        "id": "CHECK_FAMILY_WELLSTOCKED",
+        "type": "decision",
+        "label": "All Family Sizes Well-Stocked?",
+        "description": "Check if ALL children in family have YIS > {well_stocked_threshold}. If yes, entire family needs no action.",
+        "condition": {
+          "field": "family_min_yis",
+          "operator": ">",
+          "value": "{well_stocked_threshold}"
+        },
+        "position": { "x": 500, "y": 260 },
+        "phase": "input"
+      },
+
+      "SKIP_WELLSTOCKED": {
+        "id": "SKIP_WELLSTOCKED",
+        "type": "result",
+        "label": "Skip: Family Well-Stocked",
+        "description": "All sizes in family above {well_stocked_threshold} years - no action needed",
+        "result": {
+          "action": "skip",
+          "priority": "NONE",
+          "reason": "Family well-stocked (all sizes > {well_stocked_threshold} YIS)",
+          "color": "#4caf50"
+        },
+        "position": { "x": 800, "y": 260 },
+        "phase": "input"
+      },
+
+      "CHECK_FAMILY_ZEROSTOCK": {
+        "id": "CHECK_FAMILY_ZEROSTOCK",
+        "type": "decision",
+        "label": "All Family Sizes Zero?",
+        "description": "Check if ALL children in family have zero stock. If yes, cannot cut - needs vendor order.",
+        "condition": {
+          "field": "family_max_stock",
+          "operator": "==",
+          "value": 0
+        },
+        "position": { "x": 500, "y": 340 },
+        "phase": "input"
+      },
+
+      "VENDOR_ORDER_ONLY": {
+        "id": "VENDOR_ORDER_ONLY",
+        "type": "result",
+        "label": "Vendor Order Required",
+        "description": "All sizes at zero - cannot cut, must order from vendor",
+        "result": {
+          "action": "order",
+          "priority": "URGENT",
+          "reason": "All family sizes at zero - vendor order required",
+          "color": "#d32f2f"
+        },
+        "position": { "x": 800, "y": 340 },
+        "phase": "input"
+      },
+
+      "CHECK_SMALLEST_ONLY": {
+        "id": "CHECK_SMALLEST_ONLY",
+        "type": "decision",
+        "label": "Only Smallest Size Has Stock?",
+        "description": "Check if only the smallest size (5x5/6x6) has stock, all larger = 0. Cannot cut small to large.",
+        "condition": {
+          "field": "only_smallest_has_stock",
+          "operator": "==",
+          "value": true
+        },
+        "position": { "x": 500, "y": 420 },
+        "phase": "input"
+      },
+
+      "SKIP_SMALLEST_ONLY": {
+        "id": "SKIP_SMALLEST_ONLY",
+        "type": "result",
+        "label": "Skip: Cannot Cut Smallest",
+        "description": "Only smallest size has stock - cannot cut to replenish larger sizes. Order larger from vendor.",
+        "result": {
+          "action": "order_larger",
+          "priority": "HIGH",
+          "reason": "Only smallest size in stock - cannot cascade up, order larger sizes",
+          "color": "#ff5722"
+        },
+        "position": { "x": 200, "y": 420 },
+        "phase": "input"
+      },
+
+      "CHECK_SALES_HISTORY": {
+        "id": "CHECK_SALES_HISTORY",
         "type": "decision",
         "label": "Has Sales History?",
-        "description": "Check if the product has any sales (Purchased > 0)",
+        "description": "Check if product has annual sales (Purchased > 0). No sales = manual review needed.",
         "condition": {
           "field": "purchased",
           "operator": ">",
           "value": 0
         },
-        "position": { "x": 400, "y": 150 }
+        "position": { "x": 500, "y": 500 },
+        "phase": "analysis"
       },
+
       "MANUAL_REVIEW": {
         "id": "MANUAL_REVIEW",
         "type": "result",
         "label": "Manual Review Required",
-        "description": "No sales history - needs human decision",
+        "description": "No sales history - cannot calculate YIS or demand. Human decision needed.",
         "result": {
           "action": "review",
           "priority": "HIGH",
           "reason": "No sales history - manual review needed",
           "color": "#9c27b0"
         },
-        "position": { "x": 150, "y": 250 }
+        "position": { "x": 200, "y": 500 },
+        "phase": "analysis"
       },
+
       "CALC_YIS": {
         "id": "CALC_YIS",
         "type": "calculation",
         "label": "Calculate Years in Stock",
-        "description": "YIS = Quantity in Stock / Annual Purchased",
+        "description": "YIS = Quantity_in_Stock / Purchased. Also calculate Days (YIS * 365) and Months (YIS * 12).",
         "formula": "quantity_in_stock / purchased",
         "output_field": "years_in_stock",
-        "position": { "x": 400, "y": 280 }
+        "additional_outputs": {
+          "days_in_stock": "years_in_stock * 365",
+          "months_in_stock": "years_in_stock * 12"
+        },
+        "position": { "x": 500, "y": 580 },
+        "phase": "analysis"
       },
+
       "CHECK_ZERO_STOCK": {
         "id": "CHECK_ZERO_STOCK",
         "type": "decision",
-        "label": "Zero Stock?",
-        "description": "Check if current stock is zero (urgent situation)",
+        "label": "Size at Zero Stock?",
+        "description": "Check if current size has zero stock. Zero = highest urgency (stockout prevents revenue).",
         "condition": {
           "field": "quantity_in_stock",
           "operator": "==",
           "value": 0
         },
-        "position": { "x": 400, "y": 380 }
+        "position": { "x": 500, "y": 660 },
+        "phase": "analysis"
       },
+
+      "CHECK_HAS_SOURCE": {
+        "id": "CHECK_HAS_SOURCE",
+        "type": "decision",
+        "label": "Larger Size Available to Cut?",
+        "description": "For zero-stock size, check if any larger size in family has stock > 0 that can be cut down.",
+        "condition": {
+          "field": "has_larger_source",
+          "operator": "==",
+          "value": true
+        },
+        "position": { "x": 700, "y": 740 },
+        "phase": "cascade"
+      },
+
       "URGENT_ORDER": {
         "id": "URGENT_ORDER",
         "type": "result",
         "label": "URGENT: Order Required",
-        "description": "Zero stock - immediate order needed",
+        "description": "Zero stock with no cutting source - immediate vendor order needed",
         "result": {
           "action": "order",
           "priority": "URGENT",
-          "reason": "ZERO STOCK - Immediate order required",
-          "color": "#d32f2f",
-          "calculate_quantity": true,
-          "target_field": "{target_years}"
+          "reason": "ZERO STOCK - No cutting source - Immediate order required",
+          "color": "#d32f2f"
         },
-        "position": { "x": 650, "y": 380 }
+        "position": { "x": 900, "y": 740 },
+        "phase": "decision"
       },
-      "CHECK_TARGET": {
-        "id": "CHECK_TARGET",
+
+      "CHECK_CASCADE_ALLOWED": {
+        "id": "CHECK_CASCADE_ALLOWED",
         "type": "decision",
-        "label": "YIS >= {target_years}?",
-        "description": "Check if stock meets or exceeds target level",
-        "condition": {
-          "field": "years_in_stock",
-          "operator": ">=",
-          "value": "{target_years}"
-        },
-        "position": { "x": 400, "y": 480 }
-      },
-      "NO_REORDER": {
-        "id": "NO_REORDER",
-        "type": "result",
-        "label": "No Reorder Needed",
-        "description": "Stock is adequate - at or above target",
-        "result": {
-          "action": "none",
-          "priority": "LOW",
-          "reason": "Adequate stock (YIS >= {target_years} target)",
-          "color": "#4caf50"
-        },
-        "position": { "x": 650, "y": 480 }
-      },
-      "CHECK_THRESHOLD": {
-        "id": "CHECK_THRESHOLD",
-        "type": "decision",
-        "label": "YIS >= {threshold_years}?",
-        "description": "Check if stock is above minimum threshold",
-        "condition": {
-          "field": "years_in_stock",
-          "operator": ">=",
-          "value": "{threshold_years}"
-        },
-        "position": { "x": 400, "y": 580 }
-      },
-      "OPTIONAL_REORDER": {
-        "id": "OPTIONAL_REORDER",
-        "type": "result",
-        "label": "Optional Reorder",
-        "description": "Above threshold but below target - reorder is optional",
-        "result": {
-          "action": "optional",
-          "priority": "MEDIUM",
-          "reason": "Optional reorder (YIS between {threshold_years} and {target_years})",
-          "color": "#ff9800",
-          "calculate_quantity": true,
-          "target_field": "{target_years}"
-        },
-        "position": { "x": 650, "y": 580 }
-      },
-      "CHECK_LEAN": {
-        "id": "CHECK_LEAN",
-        "type": "decision",
-        "label": "YIS < {lean_threshold}?",
-        "description": "Check if stock is critically low (lean inventory)",
-        "condition": {
-          "field": "years_in_stock",
-          "operator": "<",
-          "value": "{lean_threshold}"
-        },
-        "position": { "x": 400, "y": 680 }
-      },
-      "LEAN_ORDER": {
-        "id": "LEAN_ORDER",
-        "type": "result",
-        "label": "LEAN: Order Required",
-        "description": "Critically low stock - order to reach target",
-        "result": {
-          "action": "order",
-          "priority": "HIGH",
-          "reason": "LEAN INVENTORY (YIS < {lean_threshold}) - Order to reach {target_years}",
-          "color": "#f44336",
-          "calculate_quantity": true,
-          "target_field": "{target_years}"
-        },
-        "position": { "x": 200, "y": 780 }
-      },
-      "CHECK_CASCADE": {
-        "id": "CHECK_CASCADE",
-        "type": "decision",
-        "label": "Cascade Allowed?",
-        "description": "Check if vendor allows cascade logic (cutting from larger sizes)",
+        "label": "Cascade Logic Enabled?",
+        "description": "Check if vendor allows cascade cutting (e.g., Bullseye 3mm: 2 Half = 1 Full)",
         "condition": {
           "field": "{allow_cascade}",
           "operator": "==",
           "value": true
         },
-        "position": { "x": 500, "y": 780 }
+        "position": { "x": 500, "y": 740 },
+        "phase": "cascade"
       },
-      "CASCADE_CHECK": {
-        "id": "CASCADE_CHECK",
-        "type": "result",
-        "label": "Check Cascade Options",
-        "description": "Review cascade opportunities before ordering",
-        "result": {
-          "action": "cascade_review",
-          "priority": "MEDIUM",
-          "reason": "Below threshold (YIS < {threshold_years}) - Check cascade from larger sizes first",
-          "color": "#2196f3",
-          "calculate_quantity": true,
-          "target_field": "{target_years}",
-          "note": "Review cutting options before placing vendor order"
+
+      "CHECK_HALF_CASCADE_3MM": {
+        "id": "CHECK_HALF_CASCADE_3MM",
+        "type": "decision",
+        "label": "3mm: Can Cascade Half Sheets?",
+        "description": "BULLSEYE 3mm ONLY: Check if Half >= 2 AND Half YIS after cascade >= 0.40. 2 Half = 1 Full equiv.",
+        "condition": {
+          "complex_logic": "half_cascade_check",
+          "requirements": [
+            "half_quantity >= 2",
+            "half_yis_after >= 0.40"
+          ]
         },
-        "position": { "x": 350, "y": 880 }
+        "position": { "x": 300, "y": 820 },
+        "phase": "cascade"
       },
-      "ORDER_REQUIRED": {
-        "id": "ORDER_REQUIRED",
+
+      "CASCADE_FROM_HALF": {
+        "id": "CASCADE_FROM_HALF",
+        "type": "process",
+        "label": "Cascade: 2 Half -> 1 Full Equiv",
+        "description": "Cut 2 Half Sheets to produce Full Sheet equivalent. Yield: 6x 10x10 + 2x 5x10",
+        "process": {
+          "type": "cascade",
+          "source": "half_sheet",
+          "source_quantity": 2,
+          "yields": { "10x10": 6, "5x10": 2 }
+        },
+        "position": { "x": 100, "y": 900 },
+        "phase": "cascade"
+      },
+
+      "CHECK_SOURCE_OVERSTOCK": {
+        "id": "CHECK_SOURCE_OVERSTOCK",
+        "type": "decision",
+        "label": "Source Size Overstocked?",
+        "description": "Check if larger source size has YIS > {overstocked_threshold} (cutting source available)",
+        "condition": {
+          "field": "source_yis",
+          "operator": ">",
+          "value": "{overstocked_threshold}"
+        },
+        "position": { "x": 500, "y": 820 },
+        "phase": "cascade"
+      },
+
+      "CHECK_SOURCE_MINIMUM": {
+        "id": "CHECK_SOURCE_MINIMUM",
+        "type": "decision",
+        "label": "Source Stays Above Min After Cut?",
+        "description": "Verify source size stays above {source_min_yis} after cutting. NEVER zero out sources (except Oceanside 24x24).",
+        "condition": {
+          "field": "source_yis_after",
+          "operator": ">=",
+          "value": "{source_min_yis}"
+        },
+        "position": { "x": 500, "y": 900 },
+        "phase": "cascade"
+      },
+
+      "CALC_CUTTING_PLAN": {
+        "id": "CALC_CUTTING_PLAN",
+        "type": "calculation",
+        "label": "Calculate Cutting Plan",
+        "description": "Sheets_Needed = CEIL(Deficit / Yield). Check multiple source sizes, prefer largest.",
+        "formula": "ceil(deficit / yield_per_sheet)",
+        "output_field": "sheets_to_cut",
+        "position": { "x": 500, "y": 980 },
+        "phase": "calculation"
+      },
+
+      "CHECK_CUT_COVERS_DEFICIT": {
+        "id": "CHECK_CUT_COVERS_DEFICIT",
+        "type": "decision",
+        "label": "Cutting Fully Covers Deficit?",
+        "description": "Check if cutting plan brings size to target without needing vendor order",
+        "condition": {
+          "field": "yis_after_cut",
+          "operator": ">=",
+          "value": "{target_years}"
+        },
+        "position": { "x": 500, "y": 1060 },
+        "phase": "decision"
+      },
+
+      "CUT_ONLY": {
+        "id": "CUT_ONLY",
         "type": "result",
-        "label": "Order Required",
-        "description": "Below threshold - must order from vendor",
+        "label": "CUT ONLY",
+        "description": "Cutting from larger sizes fully covers deficit - no vendor order needed",
+        "result": {
+          "action": "cut",
+          "priority": "MEDIUM",
+          "reason": "Cutting covers deficit - no vendor order needed",
+          "color": "#2196f3",
+          "output": "cutting_work_order"
+        },
+        "position": { "x": 200, "y": 1060 },
+        "phase": "output"
+      },
+
+      "CUT_AND_ORDER": {
+        "id": "CUT_AND_ORDER",
+        "type": "result",
+        "label": "CUT + ORDER",
+        "description": "Cutting partially covers deficit - vendor order also needed for remainder",
+        "result": {
+          "action": "cut_and_order",
+          "priority": "HIGH",
+          "reason": "Cutting partially covers - order remainder from vendor",
+          "color": "#ff9800",
+          "output": "cutting_work_order + purchase_order"
+        },
+        "position": { "x": 700, "y": 1060 },
+        "phase": "output"
+      },
+
+      "CHECK_WELL_STOCKED": {
+        "id": "CHECK_WELL_STOCKED",
+        "type": "decision",
+        "label": "YIS >= {target_years}?",
+        "description": "Check if size meets or exceeds target level (no action needed)",
+        "condition": {
+          "field": "years_in_stock",
+          "operator": ">=",
+          "value": "{target_years}"
+        },
+        "position": { "x": 700, "y": 660 },
+        "phase": "analysis"
+      },
+
+      "NO_ACTION": {
+        "id": "NO_ACTION",
+        "type": "result",
+        "label": "No Action Needed",
+        "description": "Stock is adequate - at or above target level",
+        "result": {
+          "action": "none",
+          "priority": "LOW",
+          "reason": "Adequate stock (YIS >= {target_years})",
+          "color": "#4caf50"
+        },
+        "position": { "x": 900, "y": 660 },
+        "phase": "output"
+      },
+
+      "CHECK_THRESHOLD": {
+        "id": "CHECK_THRESHOLD",
+        "type": "decision",
+        "label": "YIS >= {threshold_years}?",
+        "description": "Check if stock is above minimum order threshold",
+        "condition": {
+          "field": "years_in_stock",
+          "operator": ">=",
+          "value": "{threshold_years}"
+        },
+        "position": { "x": 700, "y": 820 },
+        "phase": "analysis"
+      },
+
+      "OPTIONAL_REORDER": {
+        "id": "OPTIONAL_REORDER",
+        "type": "result",
+        "label": "Optional Reorder",
+        "description": "Above threshold but below target - reorder is optional (monitor closely)",
+        "result": {
+          "action": "optional",
+          "priority": "MEDIUM",
+          "reason": "Optional reorder (YIS between {threshold_years} and {target_years})",
+          "color": "#ff9800"
+        },
+        "position": { "x": 900, "y": 820 },
+        "phase": "decision"
+      },
+
+      "CHECK_LEAN": {
+        "id": "CHECK_LEAN",
+        "type": "decision",
+        "label": "YIS < {lean_threshold}?",
+        "description": "Check if stock is critically low (lean inventory alert)",
+        "condition": {
+          "field": "years_in_stock",
+          "operator": "<",
+          "value": "{lean_threshold}"
+        },
+        "position": { "x": 700, "y": 900 },
+        "phase": "analysis"
+      },
+
+      "LEAN_ALERT": {
+        "id": "LEAN_ALERT",
+        "type": "result",
+        "label": "LEAN: Order Urgently",
+        "description": "Critically low stock - order immediately to avoid stockout",
         "result": {
           "action": "order",
           "priority": "HIGH",
-          "reason": "Below threshold (YIS < {threshold_years}) - Order to reach {target_years}",
-          "color": "#f44336",
-          "calculate_quantity": true,
-          "target_field": "{target_years}"
+          "reason": "LEAN INVENTORY (YIS < {lean_threshold}) - Order urgently",
+          "color": "#f44336"
         },
-        "position": { "x": 650, "y": 880 }
+        "position": { "x": 900, "y": 900 },
+        "phase": "decision"
+      },
+
+      "CHECK_VENDOR_RULES": {
+        "id": "CHECK_VENDOR_RULES",
+        "type": "decision",
+        "label": "Special Vendor Rules Apply?",
+        "description": "Check for vendor-specific rules (CDV: round to 5, dragonfly exception, etc.)",
+        "condition": {
+          "field": "has_special_rules",
+          "operator": "==",
+          "value": true
+        },
+        "position": { "x": 700, "y": 980 },
+        "phase": "calculation"
+      },
+
+      "APPLY_CDV_RULES": {
+        "id": "APPLY_CDV_RULES",
+        "type": "calculation",
+        "label": "Apply CDV Rules",
+        "description": "CDV: Round to 5s. If zero stock: add 10 first. Dragonfly mold: always 100.",
+        "formula": "ceil((base_qty + zero_bonus) / 5) * 5",
+        "special_cases": {
+          "dragonfly": 100,
+          "zero_stock_bonus": 10
+        },
+        "position": { "x": 500, "y": 1060 },
+        "phase": "calculation"
+      },
+
+      "CALC_ORDER_QTY": {
+        "id": "CALC_ORDER_QTY",
+        "type": "calculation",
+        "label": "Calculate Order Quantity",
+        "description": "Order_Qty = (Purchased * {target_years}) - Current_Stock. Apply rounding per vendor.",
+        "formula": "(purchased * {target_years}) - quantity_in_stock",
+        "rounding": "{rounding_method}",
+        "position": { "x": 700, "y": 1060 },
+        "phase": "calculation"
+      },
+
+      "VERIFY_ALL_SIZES": {
+        "id": "VERIFY_ALL_SIZES",
+        "type": "decision",
+        "label": "All Sizes >= {target_years}?",
+        "description": "FINAL CHECK: Verify ALL sizes in family reach target (including Half for Bullseye)",
+        "condition": {
+          "field": "family_min_yis_final",
+          "operator": ">=",
+          "value": "{target_years}"
+        },
+        "position": { "x": 500, "y": 1140 },
+        "phase": "output"
+      },
+
+      "INCREASE_ORDER": {
+        "id": "INCREASE_ORDER",
+        "type": "process",
+        "label": "Increase Order Quantity",
+        "description": "One or more sizes still below target - increase order and recalculate",
+        "process": {
+          "type": "recalculate",
+          "action": "increase_order"
+        },
+        "position": { "x": 200, "y": 1140 },
+        "phase": "calculation"
+      },
+
+      "GENERATE_OUTPUT": {
+        "id": "GENERATE_OUTPUT",
+        "type": "result",
+        "label": "Generate Work Order / PO",
+        "description": "Generate final output: Cutting Work Order and/or Purchase Order",
+        "result": {
+          "action": "generate_output",
+          "priority": "COMPLETE",
+          "reason": "All sizes verified - generating output",
+          "color": "#4caf50",
+          "outputs": ["cutting_work_order", "purchase_order"]
+        },
+        "position": { "x": 700, "y": 1140 },
+        "phase": "output"
+      },
+
+      "CHECK_SEASONAL": {
+        "id": "CHECK_SEASONAL",
+        "type": "decision",
+        "label": "Seasonal Product?",
+        "description": "Check for seasonal rules (e.g., Holly Berry Red: pre-order by June 30)",
+        "condition": {
+          "field": "is_seasonal",
+          "operator": "==",
+          "value": true
+        },
+        "position": { "x": 100, "y": 580 },
+        "phase": "analysis"
+      },
+
+      "SEASONAL_ALERT": {
+        "id": "SEASONAL_ALERT",
+        "type": "result",
+        "label": "Seasonal Alert",
+        "description": "Product has seasonal ordering requirements - check deadline",
+        "result": {
+          "action": "seasonal_review",
+          "priority": "HIGH",
+          "reason": "Seasonal product - check pre-order deadline ({seasonal_deadline})",
+          "color": "#e91e63"
+        },
+        "position": { "x": 100, "y": 660 },
+        "phase": "decision"
       }
     },
     "edges": [
       {
         "id": "e1",
         "from": "START",
-        "to": "CHECK_SALES",
+        "to": "LOAD_DATA",
         "label": "",
         "style": "default"
       },
       {
         "id": "e2",
-        "from": "CHECK_SALES",
-        "to": "CALC_YIS",
-        "label": "Yes",
-        "condition_result": true,
-        "style": "default"
-      },
-      {
-        "id": "e3",
-        "from": "CHECK_SALES",
-        "to": "MANUAL_REVIEW",
-        "label": "No (Purchased = 0)",
-        "condition_result": false,
-        "style": "default"
-      },
-      {
-        "id": "e4",
-        "from": "CALC_YIS",
-        "to": "CHECK_ZERO_STOCK",
+        "from": "LOAD_DATA",
+        "to": "CHECK_KEYWORD_FILTER",
         "label": "",
         "style": "default"
       },
       {
-        "id": "e5",
-        "from": "CHECK_ZERO_STOCK",
-        "to": "URGENT_ORDER",
-        "label": "Yes (Stock = 0)",
+        "id": "e3",
+        "from": "CHECK_KEYWORD_FILTER",
+        "to": "SKIP_EXCLUDED",
+        "label": "Yes (Contains Keyword)",
         "condition_result": true,
-        "style": "urgent"
+        "style": "muted"
+      },
+      {
+        "id": "e4",
+        "from": "CHECK_KEYWORD_FILTER",
+        "to": "CHECK_FAMILY_WELLSTOCKED",
+        "label": "No",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e5",
+        "from": "CHECK_FAMILY_WELLSTOCKED",
+        "to": "SKIP_WELLSTOCKED",
+        "label": "Yes (All > {well_stocked_threshold})",
+        "condition_result": true,
+        "style": "success"
       },
       {
         "id": "e6",
-        "from": "CHECK_ZERO_STOCK",
-        "to": "CHECK_TARGET",
+        "from": "CHECK_FAMILY_WELLSTOCKED",
+        "to": "CHECK_FAMILY_ZEROSTOCK",
         "label": "No",
         "condition_result": false,
         "style": "default"
       },
       {
         "id": "e7",
-        "from": "CHECK_TARGET",
-        "to": "NO_REORDER",
+        "from": "CHECK_FAMILY_ZEROSTOCK",
+        "to": "VENDOR_ORDER_ONLY",
+        "label": "Yes (All = 0)",
+        "condition_result": true,
+        "style": "danger"
+      },
+      {
+        "id": "e8",
+        "from": "CHECK_FAMILY_ZEROSTOCK",
+        "to": "CHECK_SMALLEST_ONLY",
+        "label": "No",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e9",
+        "from": "CHECK_SMALLEST_ONLY",
+        "to": "SKIP_SMALLEST_ONLY",
+        "label": "Yes (Only smallest)",
+        "condition_result": true,
+        "style": "warning"
+      },
+      {
+        "id": "e10",
+        "from": "CHECK_SMALLEST_ONLY",
+        "to": "CHECK_SALES_HISTORY",
+        "label": "No",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e11",
+        "from": "CHECK_SALES_HISTORY",
+        "to": "MANUAL_REVIEW",
+        "label": "No (Purchased = 0)",
+        "condition_result": false,
+        "style": "warning"
+      },
+      {
+        "id": "e12",
+        "from": "CHECK_SALES_HISTORY",
+        "to": "CHECK_SEASONAL",
+        "label": "Yes",
+        "condition_result": true,
+        "style": "default"
+      },
+      {
+        "id": "e13",
+        "from": "CHECK_SEASONAL",
+        "to": "SEASONAL_ALERT",
+        "label": "Yes (Seasonal)",
+        "condition_result": true,
+        "style": "warning"
+      },
+      {
+        "id": "e14",
+        "from": "CHECK_SEASONAL",
+        "to": "CALC_YIS",
+        "label": "No",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e15",
+        "from": "SEASONAL_ALERT",
+        "to": "CALC_YIS",
+        "label": "Continue",
+        "style": "default"
+      },
+      {
+        "id": "e16",
+        "from": "CALC_YIS",
+        "to": "CHECK_ZERO_STOCK",
+        "label": "",
+        "style": "default"
+      },
+      {
+        "id": "e17",
+        "from": "CHECK_ZERO_STOCK",
+        "to": "CHECK_HAS_SOURCE",
+        "label": "Yes (Stock = 0)",
+        "condition_result": true,
+        "style": "danger"
+      },
+      {
+        "id": "e18",
+        "from": "CHECK_ZERO_STOCK",
+        "to": "CHECK_WELL_STOCKED",
+        "label": "No (Stock > 0)",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e19",
+        "from": "CHECK_HAS_SOURCE",
+        "to": "URGENT_ORDER",
+        "label": "No (No source)",
+        "condition_result": false,
+        "style": "danger"
+      },
+      {
+        "id": "e20",
+        "from": "CHECK_HAS_SOURCE",
+        "to": "CHECK_CASCADE_ALLOWED",
+        "label": "Yes (Has source)",
+        "condition_result": true,
+        "style": "default"
+      },
+      {
+        "id": "e21",
+        "from": "CHECK_CASCADE_ALLOWED",
+        "to": "CHECK_HALF_CASCADE_3MM",
+        "label": "Yes (Cascade OK)",
+        "condition_result": true,
+        "style": "info"
+      },
+      {
+        "id": "e22",
+        "from": "CHECK_CASCADE_ALLOWED",
+        "to": "CHECK_SOURCE_OVERSTOCK",
+        "label": "No Cascade",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e23",
+        "from": "CHECK_HALF_CASCADE_3MM",
+        "to": "CASCADE_FROM_HALF",
+        "label": "Yes (Half OK)",
+        "condition_result": true,
+        "style": "info"
+      },
+      {
+        "id": "e24",
+        "from": "CHECK_HALF_CASCADE_3MM",
+        "to": "CHECK_SOURCE_OVERSTOCK",
+        "label": "No (Half insufficient)",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e25",
+        "from": "CASCADE_FROM_HALF",
+        "to": "CHECK_SOURCE_OVERSTOCK",
+        "label": "Continue after cascade",
+        "style": "default"
+      },
+      {
+        "id": "e26",
+        "from": "CHECK_SOURCE_OVERSTOCK",
+        "to": "CHECK_SOURCE_MINIMUM",
+        "label": "Yes (Overstock)",
+        "condition_result": true,
+        "style": "default"
+      },
+      {
+        "id": "e27",
+        "from": "CHECK_SOURCE_OVERSTOCK",
+        "to": "CALC_ORDER_QTY",
+        "label": "No (Not overstock)",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e28",
+        "from": "CHECK_SOURCE_MINIMUM",
+        "to": "CALC_CUTTING_PLAN",
+        "label": "Yes (Source OK)",
+        "condition_result": true,
+        "style": "default"
+      },
+      {
+        "id": "e29",
+        "from": "CHECK_SOURCE_MINIMUM",
+        "to": "CALC_ORDER_QTY",
+        "label": "No (Would deplete source)",
+        "condition_result": false,
+        "style": "warning"
+      },
+      {
+        "id": "e30",
+        "from": "CALC_CUTTING_PLAN",
+        "to": "CHECK_CUT_COVERS_DEFICIT",
+        "label": "",
+        "style": "default"
+      },
+      {
+        "id": "e31",
+        "from": "CHECK_CUT_COVERS_DEFICIT",
+        "to": "CUT_ONLY",
+        "label": "Yes (Fully covered)",
+        "condition_result": true,
+        "style": "success"
+      },
+      {
+        "id": "e32",
+        "from": "CHECK_CUT_COVERS_DEFICIT",
+        "to": "CUT_AND_ORDER",
+        "label": "No (Partial)",
+        "condition_result": false,
+        "style": "warning"
+      },
+      {
+        "id": "e33",
+        "from": "CHECK_WELL_STOCKED",
+        "to": "NO_ACTION",
         "label": "Yes (>= {target_years})",
         "condition_result": true,
         "style": "success"
       },
       {
-        "id": "e8",
-        "from": "CHECK_TARGET",
+        "id": "e34",
+        "from": "CHECK_WELL_STOCKED",
         "to": "CHECK_THRESHOLD",
         "label": "No (< {target_years})",
         "condition_result": false,
         "style": "default"
       },
       {
-        "id": "e9",
+        "id": "e35",
         "from": "CHECK_THRESHOLD",
         "to": "OPTIONAL_REORDER",
         "label": "Yes (>= {threshold_years})",
@@ -272,7 +835,7 @@
         "style": "warning"
       },
       {
-        "id": "e10",
+        "id": "e36",
         "from": "CHECK_THRESHOLD",
         "to": "CHECK_LEAN",
         "label": "No (< {threshold_years})",
@@ -280,45 +843,141 @@
         "style": "default"
       },
       {
-        "id": "e11",
+        "id": "e37",
         "from": "CHECK_LEAN",
-        "to": "LEAN_ORDER",
+        "to": "LEAN_ALERT",
         "label": "Yes (< {lean_threshold})",
         "condition_result": true,
         "style": "danger"
       },
       {
-        "id": "e12",
+        "id": "e38",
         "from": "CHECK_LEAN",
-        "to": "CHECK_CASCADE",
+        "to": "CHECK_VENDOR_RULES",
         "label": "No",
         "condition_result": false,
         "style": "default"
       },
       {
-        "id": "e13",
-        "from": "CHECK_CASCADE",
-        "to": "CASCADE_CHECK",
-        "label": "Yes (Cascade OK)",
+        "id": "e39",
+        "from": "CHECK_VENDOR_RULES",
+        "to": "APPLY_CDV_RULES",
+        "label": "Yes (CDV rules)",
         "condition_result": true,
-        "style": "info"
+        "style": "default"
       },
       {
-        "id": "e14",
-        "from": "CHECK_CASCADE",
-        "to": "ORDER_REQUIRED",
-        "label": "No (No Cascade)",
+        "id": "e40",
+        "from": "CHECK_VENDOR_RULES",
+        "to": "CALC_ORDER_QTY",
+        "label": "No (Standard)",
         "condition_result": false,
-        "style": "danger"
+        "style": "default"
+      },
+      {
+        "id": "e41",
+        "from": "APPLY_CDV_RULES",
+        "to": "VERIFY_ALL_SIZES",
+        "label": "",
+        "style": "default"
+      },
+      {
+        "id": "e42",
+        "from": "CALC_ORDER_QTY",
+        "to": "VERIFY_ALL_SIZES",
+        "label": "",
+        "style": "default"
+      },
+      {
+        "id": "e43",
+        "from": "CUT_ONLY",
+        "to": "VERIFY_ALL_SIZES",
+        "label": "",
+        "style": "default"
+      },
+      {
+        "id": "e44",
+        "from": "CUT_AND_ORDER",
+        "to": "VERIFY_ALL_SIZES",
+        "label": "",
+        "style": "default"
+      },
+      {
+        "id": "e45",
+        "from": "VERIFY_ALL_SIZES",
+        "to": "INCREASE_ORDER",
+        "label": "No (Some < target)",
+        "condition_result": false,
+        "style": "warning"
+      },
+      {
+        "id": "e46",
+        "from": "VERIFY_ALL_SIZES",
+        "to": "GENERATE_OUTPUT",
+        "label": "Yes (All OK)",
+        "condition_result": true,
+        "style": "success"
+      },
+      {
+        "id": "e47",
+        "from": "INCREASE_ORDER",
+        "to": "CALC_ORDER_QTY",
+        "label": "Recalculate",
+        "style": "default"
       }
     ]
   },
   "calculations": {
-    "reorder_quantity": {
-      "description": "Calculate units needed to reach target",
-      "formula": "(purchased * {target_years}) - quantity_in_stock",
-      "rounding": "{rounding_method}",
-      "minimum": 1
+    "years_in_stock": {
+      "description": "Years of inventory coverage based on annual sales",
+      "formula": "quantity_in_stock / purchased",
+      "unit": "years"
+    },
+    "days_in_stock": {
+      "description": "Days of inventory coverage",
+      "formula": "years_in_stock * 365",
+      "unit": "days"
+    },
+    "target_quantity": {
+      "description": "Target stock level for ordering",
+      "formula": "purchased * {target_years}",
+      "unit": "units"
+    },
+    "deficit": {
+      "description": "Units needed to reach target",
+      "formula": "max(target_quantity - quantity_in_stock, 0)",
+      "unit": "units"
+    },
+    "sheets_to_cut": {
+      "description": "Number of sheets needed from larger size",
+      "formula": "ceil(deficit / yield_per_sheet)",
+      "unit": "sheets"
+    },
+    "yis_after_cut": {
+      "description": "Years in stock after cutting operation",
+      "formula": "(quantity_in_stock + pieces_produced) / purchased",
+      "unit": "years"
+    },
+    "source_yis_after": {
+      "description": "Source size YIS after cutting (must stay above minimum)",
+      "formula": "(source_stock - sheets_cut) / source_annual_sales",
+      "unit": "years"
+    }
+  },
+  "outputs": {
+    "cutting_work_order": {
+      "description": "Work order for internal cutting operations",
+      "format": {
+        "columns": ["Source_Size", "Target_Size", "Sheets_to_Cut", "Pieces_Produced", "Family"],
+        "sorting": ["Family ASC", "Source_Size DESC", "Target_Size DESC"]
+      }
+    },
+    "purchase_order": {
+      "description": "Purchase order for vendor ordering",
+      "format": {
+        "columns": ["Vendor_SKU", "Product_Name", "Order_Qty", "Current_Stock", "YIS_After"],
+        "sorting": ["Vendor ASC", "Product_Name ASC"]
+      }
     }
   }
 }

@@ -1,6 +1,6 @@
 /**
- * Decision Tree Visualizer - Clean Minimal Design
- * Matches the React prototype interaction
+ * Decision Tree Visualizer - Comprehensive Inventory Decision System
+ * Supports all node types: start, process, calculation, decision, result
  */
 
 class DecisionTreeApp {
@@ -14,9 +14,25 @@ class DecisionTreeApp {
         this.currentVendorId = null;
         this.simData = {
             yearsInStock: 0.15,
-            hasLargerSheets: true
+            hasLargerSheets: true,
+            quantity_in_stock: 50,
+            purchased: 100,
+            family_min_yis: 0.30,
+            family_max_stock: 100,
+            only_smallest_has_stock: false,
+            is_seasonal: false,
+            has_larger_source: true,
+            source_yis: 0.60,
+            source_yis_after: 0.40,
+            yis_after_cut: 0.35,
+            family_min_yis_final: 0.45
         };
         this.activePath = new Set();
+
+        // Zoom and pan state
+        this.scale = 1;
+        this.panX = 0;
+        this.panY = 0;
 
         // Cache elements
         this.cacheElements();
@@ -29,6 +45,8 @@ class DecisionTreeApp {
 
         // Render initial tree
         this.renderTree();
+
+        console.log('DecisionTreeApp initialized with', this.masterLogic.nodes.length, 'nodes');
     }
 
     cacheElements() {
@@ -220,29 +238,59 @@ class DecisionTreeApp {
 
         if (!this.currentVendor) return;
 
-        let currentNodeId = 'start';
+        // Find the start node (try both 'start' and 'START')
+        let currentNodeId = this.masterLogic.nodes.find(n =>
+            n.id === 'START' || n.id === 'start' || n.type === 'start'
+        )?.id || 'START';
+
         let steps = 0;
 
-        while (currentNodeId && steps < 50) {
+        while (currentNodeId && steps < 100) {
             this.activePath.add(currentNodeId);
             steps++;
 
-            // Find matching edge
-            const edge = this.masterLogic.edges.find(e =>
-                e.from === currentNodeId && this.evaluateCondition(e.condition)
-            );
+            // Find the current node
+            const node = this.masterLogic.nodes.find(n => n.id === currentNodeId);
+            if (!node) break;
 
-            if (edge) {
-                this.activeEdges.add(`${edge.from}->${edge.to}`);
+            // For result nodes, stop
+            if (node.type === 'result' || node.type === 'end') break;
+
+            // Find matching edge based on condition evaluation
+            let edge = null;
+            const outgoingEdges = this.masterLogic.edges.filter(e => e.from === currentNodeId);
+
+            if (node.type === 'decision') {
+                // For decision nodes, find the edge matching the condition result
+                for (const e of outgoingEdges) {
+                    const conditionResult = this.evaluateCondition(e.condition);
+                    if (e.condition_result === conditionResult ||
+                        (e.condition_result === undefined && conditionResult)) {
+                        edge = e;
+                        break;
+                    }
+                }
+                // Fallback to first edge if no condition matched
+                if (!edge && outgoingEdges.length > 0) {
+                    edge = outgoingEdges.find(e => e.condition_result === false) || outgoingEdges[0];
+                }
+            } else {
+                // For non-decision nodes (start, process, calculation), take first edge
+                edge = outgoingEdges[0];
             }
 
-            currentNodeId = edge ? edge.to : null;
+            if (edge) {
+                this.activeEdges.add(edge.id || `${edge.from}->${edge.to}`);
+                currentNodeId = edge.to;
+            } else {
+                break;
+            }
         }
 
         console.log('Path calculated:', {
             path: Array.from(this.activePath),
             yearsInStock: this.simData.yearsInStock,
-            threshold: this.currentVendor.threshold_years
+            threshold: this.currentVendor?.threshold_years
         });
     }
 
@@ -256,25 +304,61 @@ class DecisionTreeApp {
         if (condition.complex_logic === 'fallback') {
             return !this.currentVendor.allow_cascade || !this.simData.hasLargerSheets;
         }
+        if (condition.complex_logic === 'half_cascade_check') {
+            // Bullseye 3mm: Check if Half >= 2 AND YIS after >= 0.40
+            return this.simData.hasLargerSheets && this.currentVendor.allow_cascade;
+        }
+        if (condition.complex_logic) {
+            // Generic complex logic - default to true for demo
+            return true;
+        }
+
+        // Handle contains_any for keyword filters
+        if (condition.operator === 'contains_any') {
+            // For demo, assume products pass keyword filter
+            return false;
+        }
 
         // Field comparison
         if (condition.field) {
-            const val = this.simData[condition.field];
+            let fieldName = condition.field;
+
+            // Resolve field placeholder like "{allow_cascade}"
+            if (typeof fieldName === 'string' && fieldName.startsWith('{') && fieldName.endsWith('}')) {
+                const key = fieldName.slice(1, -1);
+                const resolvedVal = this.currentVendor[key];
+                // For boolean vendor params, compare directly
+                if (typeof resolvedVal === 'boolean') {
+                    return resolvedVal === condition.value;
+                }
+                fieldName = key;
+            }
+
+            // Get value from simData
+            const val = this.simData[fieldName];
+            if (val === undefined) return false;
+
             let target = condition.value;
 
-            // Resolve placeholder
+            // Resolve placeholder in target
             if (typeof target === 'string' && target.startsWith('{') && target.endsWith('}')) {
                 const key = target.slice(1, -1);
                 target = this.currentVendor[key];
             }
 
-            switch (condition.operator) {
-                case '>=': return val >= target;
-                case '>': return val > target;
-                case '<=': return val <= target;
-                case '<': return val < target;
-                case '==': return val == target;
-                case '!=': return val != target;
+            // Perform comparison
+            try {
+                switch (condition.operator) {
+                    case '>=': return parseFloat(val) >= parseFloat(target);
+                    case '>': return parseFloat(val) > parseFloat(target);
+                    case '<=': return parseFloat(val) <= parseFloat(target);
+                    case '<': return parseFloat(val) < parseFloat(target);
+                    case '==': return val == target;
+                    case '!=': return val != target;
+                    default: return false;
+                }
+            } catch (e) {
+                return false;
             }
         }
 
@@ -356,15 +440,45 @@ class DecisionTreeApp {
         let path;
         switch (type) {
             case 'start':
-                // Database icon
+                // Play icon (right arrow)
+                path = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                path.setAttribute('points', '-6,-8 8,0 -6,8');
+                path.setAttribute('fill', isActive ? 'white' : '#cbd5e1');
+                break;
+            case 'process':
+                // Gear/cog icon
+                path = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                const gear = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                gear.setAttribute('cx', '0');
+                gear.setAttribute('cy', '0');
+                gear.setAttribute('r', '6');
+                const teeth = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                teeth.setAttribute('d', 'M0 -10 L0 -7 M0 10 L0 7 M-10 0 L-7 0 M10 0 L7 0 M-7 -7 L-5 -5 M7 7 L5 5 M-7 7 L-5 5 M7 -7 L5 -5');
+                path.appendChild(gear);
+                path.appendChild(teeth);
+                break;
+            case 'calculation':
+                // Calculator/formula icon (sum symbol)
                 path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                path.setAttribute('d', 'M-8 -8 L-8 8 M8 -8 L8 8 M-8 -8 Q0 -14 8 -8 M-8 8 Q0 14 8 8 M-8 0 Q0 6 8 0');
+                path.setAttribute('d', 'M-6 -8 L6 -8 L6 -4 L0 0 L6 4 L6 8 L-6 8 L-6 4 L0 0 L-6 -4 Z');
                 break;
             case 'decision':
-                // Activity icon
-                path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                path.setAttribute('d', 'M-8 0 L-2 -8 L4 4 L10 -4');
+                // Diamond shape (question)
+                path = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                const diamond = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                diamond.setAttribute('points', '0,-10 10,0 0,10 -10,0');
+                const q = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                q.setAttribute('x', '0');
+                q.setAttribute('y', '4');
+                q.setAttribute('text-anchor', 'middle');
+                q.setAttribute('fill', isActive ? 'white' : '#cbd5e1');
+                q.setAttribute('font-size', '12');
+                q.setAttribute('font-weight', 'bold');
+                q.textContent = '?';
+                path.appendChild(diamond);
+                path.appendChild(q);
                 break;
+            case 'result':
             case 'end':
                 // Check circle icon
                 path = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -378,6 +492,7 @@ class DecisionTreeApp {
                 path.appendChild(check);
                 break;
             default:
+                // Default rectangle
                 path = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
                 path.setAttribute('x', '-8');
                 path.setAttribute('y', '-8');

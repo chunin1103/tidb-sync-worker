@@ -1,69 +1,291 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "metadata": {
-    "description": "Vendor-specific parameter configurations for the decision tree",
-    "last_modified": "2026-01-02T00:00:00Z"
+    "description": "Vendor-specific parameter configurations for the comprehensive decision tree",
+    "last_modified": "2026-01-03T00:00:00Z",
+    "sources": [
+      "Production/wiki/03_Decision_Workflows/",
+      "Bullseye Glass/MASTER_CONTEXT_PROMPT.md",
+      "Bullseye Glass/Bullseye Ordering/bullseye/context/REORDER_RULES.md"
+    ]
   },
   "vendors": {
     "bullseye": {
       "id": "bullseye",
       "name": "Bullseye Glass",
-      "description": "COE90 glass with cascade support - uses dual threshold logic",
+      "description": "COE90 glass with 5-step cascade algorithm - dual threshold logic (0.25/0.40)",
+      "system_type": "ordering",
       "parameters": {
         "threshold_years": 0.25,
         "target_years": 0.40,
         "lean_threshold": 0.20,
+        "well_stocked_threshold": 0.40,
+        "overstocked_threshold": 0.50,
+        "source_min_yis": 0.20,
+        "half_min_yis": 0.40,
         "allow_cascade": true,
         "rounding_method": "ceil",
-        "rounding_multiple": 1
+        "rounding_multiple": 1,
+        "has_special_rules": false
       },
       "metadata": {
         "source": "bullseye_calculator.py",
         "threshold_days": 91,
         "target_days": 146,
         "lean_days": 73,
-        "notes": "Uses 5-step cascade algorithm. 2 Half Sheets = 1 Full (3mm only)."
+        "lead_time_days": 35,
+        "worst_case_lead_time": 72,
+        "order_frequency": "~37 days (10 orders/year)",
+        "notes": "Uses 5-step cascade algorithm. CRITICAL: 2 Half Sheets = 1 Full (3mm ONLY). Must verify Half Sheet >= 0.40 in final check."
+      },
+      "sizes": {
+        "full": {
+          "name": "Full Sheet",
+          "dimensions": "20x35 or 17x20",
+          "priority": 1,
+          "can_cut_to": ["half", "10x10", "5x10"],
+          "min_yis": 0.25
+        },
+        "half": {
+          "name": "Half Sheet",
+          "dimensions": "17x20",
+          "priority": 2,
+          "can_cut_to": ["10x10", "5x10"],
+          "min_yis": 0.40,
+          "special_rule": "Higher threshold - most constrained size"
+        },
+        "10x10": {
+          "name": "10x10",
+          "dimensions": "10x10",
+          "priority": 3,
+          "can_cut_to": ["5x10", "5x5"],
+          "min_yis": 0.25
+        },
+        "5x10": {
+          "name": "5x10",
+          "dimensions": "5x10",
+          "priority": 4,
+          "can_cut_to": ["5x5"],
+          "min_yis": 0.25
+        },
+        "5x5": {
+          "name": "5x5",
+          "dimensions": "5x5",
+          "priority": 5,
+          "can_cut_to": [],
+          "min_yis": 0.25,
+          "is_smallest": true
+        }
       },
       "cascade_rules": {
         "enabled": true,
+        "description": "Check cascade from inventory FIRST before ordering",
+        "step_1": "Cascade from existing inventory (2 Half = 1 Full for 3mm)",
+        "step_2": "Check if ANY size < 0.25yr → ORDER needed",
+        "step_3": "Calculate minimum order to reach 0.40yr",
+        "step_4": "Cascade from new order (surplus → deficit sizes)",
+        "step_5": "VERIFY ALL sizes >= 0.40yr including Half",
         "half_to_full_ratio": 2,
         "min_half_yis_after": 0.40,
+        "thickness_rules": {
+          "3mm": {
+            "can_combine_half": true,
+            "half_equiv_ratio": 2,
+            "note": "2 Half Sheets can be cut together as Full Sheet equivalent"
+          },
+          "2mm": {
+            "can_combine_half": false,
+            "note": "2mm Half Sheets must remain individual - cannot combine"
+          }
+        },
         "cutting_yields": {
           "full_3mm": { "10x10": 6, "5x10": 2 },
           "half_3mm": { "10x10": 2, "5x10": 2 },
+          "half_2mm": { "10x10": 2, "5x10": 2 },
           "10x10": { "5x10": 2, "5x5": 4 },
           "5x10": { "5x5": 2 }
         }
       },
+      "seasonal_products": [
+        {
+          "pattern": "holly berry red",
+          "product_id": "004228",
+          "deadline": "June 30",
+          "ships": "September",
+          "season": "Q4 (Christmas)",
+          "reminder_trigger": "June 1"
+        },
+        {
+          "pattern": "white opalescent tekta",
+          "rule": "Limited production - order large quantities when available"
+        }
+      ],
+      "common_errors": [
+        "Forgetting to cascade from inventory FIRST",
+        "Applying 3mm logic to 2mm products",
+        "Forgetting Half Sheet deficit check",
+        "Not verifying Half Sheet in final check (must be >= 0.40)",
+        "Trying to cascade UP (5x10 → 10x10) - NOT ALLOWED"
+      ],
       "display": {
         "color": "#e65100",
         "icon": "fire"
       }
     },
+    "bullseye_cutsheet": {
+      "id": "bullseye_cutsheet",
+      "name": "Bullseye Cut Sheets",
+      "description": "Biweekly internal cutting system - get products off zero (0.25yr 'good enough')",
+      "system_type": "cutting",
+      "parameters": {
+        "threshold_years": 0.25,
+        "target_years": 0.25,
+        "lean_threshold": 0.10,
+        "well_stocked_threshold": 0.40,
+        "overstocked_threshold": 1.00,
+        "source_min_yis": 0.20,
+        "allow_cascade": true,
+        "rounding_method": "ceil",
+        "rounding_multiple": 1,
+        "has_special_rules": false
+      },
+      "metadata": {
+        "cycle_frequency": "14 days (biweekly)",
+        "primary_goal": "Get products OFF ZERO - stockout prevention",
+        "good_enough": "0.25 years (91 days) is sufficient",
+        "notes": "Iterative system - can adjust next cycle. Prioritize bestsellers."
+      },
+      "urgency_tiers": {
+        "tier_1": {
+          "name": "CRITICAL",
+          "condition": "Any size at zero",
+          "priority": 1,
+          "action": "Address immediately"
+        },
+        "tier_2_critical": {
+          "name": "CRITICAL",
+          "condition": "< 14 days stock",
+          "priority": 2,
+          "action": "Will stockout before next cycle"
+        },
+        "tier_2_urgent": {
+          "name": "URGENT",
+          "condition": "14-30 days stock",
+          "priority": 3,
+          "action": "Could stockout if delayed"
+        },
+        "tier_2_watch": {
+          "name": "WATCH",
+          "condition": "30-60 days stock",
+          "priority": 4,
+          "action": "On radar, 2-4 cycles runway"
+        },
+        "tier_2_ok": {
+          "name": "OK",
+          "condition": "> 60 days stock",
+          "priority": 5,
+          "action": "Not a problem right now"
+        }
+      },
+      "phase_2_rules": [
+        {
+          "rule": 1,
+          "name": "Minimize Warehouse Trips",
+          "description": "Prefer cutting freshly-produced byproducts over pulling additional warehouse stock"
+        },
+        {
+          "rule": 2,
+          "name": "Off Zero > Perfect Margins",
+          "description": "Poor stock (0.06yr) is BETTER than zero stock. Revenue protection first."
+        },
+        {
+          "rule": 3,
+          "name": "Byproduct Accumulation OK",
+          "description": "5x10 overstock from 10x10 production is acceptable. Don't over-optimize."
+        },
+        {
+          "rule": 4,
+          "name": "Protect Popular Sizes",
+          "description": "Don't sacrifice bestsellers for slow movers. Only cut popular if target is MORE popular."
+        },
+        {
+          "rule": 5,
+          "name": "Priority-Based Decisions",
+          "description": "1) Off zero, 2) Optimize balance, 3) Minimize labor"
+        }
+      ],
+      "display": {
+        "color": "#ff5722",
+        "icon": "cut"
+      }
+    },
     "oceanside": {
       "id": "oceanside",
       "name": "Oceanside Glass",
-      "description": "COE96 glass with simpler single-threshold logic",
+      "description": "COE96 glass with single-threshold logic (0.35) - can zero 24x24",
+      "system_type": "ordering",
       "parameters": {
         "threshold_years": 0.35,
         "target_years": 0.35,
         "lean_threshold": 0.20,
+        "well_stocked_threshold": 0.40,
+        "overstocked_threshold": 0.50,
+        "source_min_yis": 0.20,
         "allow_cascade": false,
         "rounding_method": "ceil",
-        "rounding_multiple": 1
+        "rounding_multiple": 1,
+        "has_special_rules": false
       },
       "metadata": {
         "source": "oceanside_calculator.py",
         "threshold_days": 128,
         "target_days": 128,
         "lean_days": 73,
-        "notes": "Single threshold - order if below 0.35yr. Can zero 24x24 (5.9% of sales)."
+        "notes": "Single threshold - order if below 0.35yr. EXCEPTION: Can zero 24x24 (only 5.9% of sales)."
+      },
+      "sizes": {
+        "24x24": {
+          "name": "Full Sheet",
+          "dimensions": "24x24",
+          "priority": 1,
+          "can_cut_to": ["12x12", "6x12", "6x6"],
+          "min_yis": 0,
+          "can_zero": true,
+          "sales_percentage": 5.9,
+          "special_rule": "OK to zero out - only 5.9% of sales"
+        },
+        "12x12": {
+          "name": "Half Sheet",
+          "dimensions": "12x12",
+          "priority": 2,
+          "can_cut_to": ["6x12", "6x6"],
+          "min_yis": 0.20,
+          "sales_percentage": 47.5
+        },
+        "6x12": {
+          "name": "Quarter",
+          "dimensions": "6x12",
+          "priority": 3,
+          "can_cut_to": ["6x6"],
+          "min_yis": 0.20,
+          "sales_percentage": 25.1
+        },
+        "6x6": {
+          "name": "Small",
+          "dimensions": "6x6",
+          "priority": 4,
+          "can_cut_to": [],
+          "min_yis": 0.20,
+          "is_smallest": true,
+          "sales_percentage": 21.5
+        }
       },
       "cutting_yields": {
         "24x24": { "12x12": 4, "6x12": 8, "6x6": 16 },
         "12x12": { "6x12": 2, "6x6": 4 },
         "6x12": { "6x6": 2 }
       },
+      "key_insight": "94% of sales are <= 12x12. Full sheets (24x24) are primarily cutting source.",
       "display": {
         "color": "#0277bd",
         "icon": "waves"
@@ -72,15 +294,20 @@
     "cdv": {
       "id": "cdv",
       "name": "Color De Verre",
-      "description": "Casting molds with round-to-5 ordering logic",
+      "description": "Casting molds with round-to-5 ordering logic and special cases",
+      "system_type": "ordering",
       "parameters": {
         "threshold_years": 0.30,
         "target_years": 0.40,
         "lean_threshold": 0.15,
+        "well_stocked_threshold": 0.40,
+        "overstocked_threshold": 0.60,
+        "source_min_yis": 0.20,
         "allow_cascade": false,
         "rounding_method": "ceil",
         "rounding_multiple": 5,
-        "zero_stock_bonus": 10
+        "zero_stock_bonus": 10,
+        "has_special_rules": true
       },
       "metadata": {
         "source": "manual_entry",
@@ -89,22 +316,41 @@
       "special_rules": [
         {
           "name": "round_to_five",
+          "priority": 1,
           "description": "All order quantities must be multiples of 5",
-          "type": "rounding"
+          "type": "rounding",
+          "formula": "ceil(qty / 5) * 5"
         },
         {
           "name": "zero_stock_bonus",
+          "priority": 2,
           "description": "Add 10 units when stock is zero",
           "type": "addition",
-          "value": 10
+          "condition": "stock == 0",
+          "value": 10,
+          "note": "Apply BEFORE rounding: (base + 10), then round to 5"
         },
         {
           "name": "dragonfly_exception",
-          "description": "Dragonfly mold always orders 100 units",
+          "priority": 0,
+          "description": "Dragonfly mold always orders 100 units - overrides all other rules",
           "type": "override",
           "pattern": "dragonfly",
           "value": 100
         }
+      ],
+      "decision_flow": [
+        "1. Is Dragonfly? → Order 100 (STOP)",
+        "2. Calculate base quantity needed",
+        "3. Is stock = 0? → Add 10 to base",
+        "4. Round UP to nearest 5",
+        "5. Final order quantity"
+      ],
+      "examples": [
+        { "base": 7, "zero_stock": false, "result": 10, "note": "7 → round up → 10" },
+        { "base": 12, "zero_stock": true, "result": 25, "note": "12 + 10 = 22 → round up → 25" },
+        { "base": 7, "zero_stock": true, "result": 20, "note": "7 + 10 = 17 → round up → 20" },
+        { "base": "dragonfly", "zero_stock": "any", "result": 100, "note": "Always 100 for dragonfly" }
       ],
       "display": {
         "color": "#7b1fa2",
@@ -114,14 +360,19 @@
     "generic": {
       "id": "generic",
       "name": "Generic / Default",
-      "description": "Default vendor configuration for testing",
+      "description": "Default vendor configuration for testing and new vendors",
+      "system_type": "ordering",
       "parameters": {
         "threshold_years": 0.30,
         "target_years": 0.40,
         "lean_threshold": 0.15,
+        "well_stocked_threshold": 0.40,
+        "overstocked_threshold": 0.50,
+        "source_min_yis": 0.20,
         "allow_cascade": false,
         "rounding_method": "ceil",
-        "rounding_multiple": 1
+        "rounding_multiple": 1,
+        "has_special_rules": false
       },
       "metadata": {
         "source": "default",
@@ -136,33 +387,112 @@
   "parameter_descriptions": {
     "threshold_years": {
       "label": "Order Decision Threshold",
-      "description": "Years in Stock below this triggers order consideration",
-      "unit": "years"
+      "description": "YIS below this triggers order consideration",
+      "unit": "years",
+      "typical_range": "0.20 - 0.35"
     },
     "target_years": {
       "label": "Order Target Level",
-      "description": "Target inventory level to reach when ordering",
-      "unit": "years"
+      "description": "Target YIS to reach when ordering",
+      "unit": "years",
+      "typical_range": "0.35 - 0.50"
     },
     "lean_threshold": {
       "label": "Lean Inventory Alert",
-      "description": "Years in Stock below this is critically low",
-      "unit": "years"
+      "description": "YIS below this is critically low - URGENT priority",
+      "unit": "years",
+      "typical_range": "0.10 - 0.20"
+    },
+    "well_stocked_threshold": {
+      "label": "Well-Stocked Level",
+      "description": "YIS above this = family needs no action",
+      "unit": "years",
+      "typical_range": "0.40 - 0.50"
+    },
+    "overstocked_threshold": {
+      "label": "Overstocked Level",
+      "description": "YIS above this = good cutting source",
+      "unit": "years",
+      "typical_range": "0.50 - 1.00"
+    },
+    "source_min_yis": {
+      "label": "Source Minimum YIS",
+      "description": "Minimum YIS a source size must maintain after cutting",
+      "unit": "years",
+      "note": "NEVER zero out sources except Oceanside 24x24"
+    },
+    "half_min_yis": {
+      "label": "Half Sheet Minimum YIS",
+      "description": "Bullseye-specific: Half Sheet has higher minimum (0.40)",
+      "unit": "years",
+      "bullseye_only": true
     },
     "allow_cascade": {
       "label": "Cascade Logic Enabled",
       "description": "Whether to check cutting opportunities before ordering",
-      "unit": "boolean"
+      "unit": "boolean",
+      "note": "Only Bullseye uses cascade (3mm: 2 Half = 1 Full)"
     },
     "rounding_method": {
       "label": "Rounding Method",
-      "description": "How to round calculated quantities (ceil, floor, round)",
-      "unit": "string"
+      "description": "How to round calculated quantities",
+      "unit": "string",
+      "options": ["ceil", "floor", "round"]
     },
     "rounding_multiple": {
       "label": "Rounding Multiple",
       "description": "Round to nearest multiple of this value",
-      "unit": "integer"
+      "unit": "integer",
+      "note": "CDV uses 5, others use 1"
+    },
+    "zero_stock_bonus": {
+      "label": "Zero Stock Bonus",
+      "description": "Units to add when current stock is zero",
+      "unit": "integer",
+      "cdv_only": true
+    },
+    "has_special_rules": {
+      "label": "Has Special Rules",
+      "description": "Whether vendor has additional custom rules (CDV: dragonfly, round-to-5)",
+      "unit": "boolean"
+    }
+  },
+  "excluded_keywords": {
+    "description": "Products containing these keywords are excluded from processing (~44% filtered)",
+    "keywords": ["reserve", "frit", "stringers", "noodles", "pound", "pack"],
+    "case_sensitive": false,
+    "impact": "~626 of 1,410 rows typically filtered"
+  },
+  "formulas": {
+    "years_in_stock": {
+      "formula": "quantity_in_stock / purchased",
+      "description": "Years of inventory coverage",
+      "alias": "YIS"
+    },
+    "days_in_stock": {
+      "formula": "years_in_stock * 365",
+      "description": "Days of inventory coverage"
+    },
+    "target_quantity": {
+      "formula": "purchased * target_years",
+      "description": "Target stock level"
+    },
+    "deficit": {
+      "formula": "max(0, target_quantity - quantity_in_stock)",
+      "description": "Units needed to reach target"
+    },
+    "sheets_to_cut": {
+      "formula": "ceil(deficit / yield_per_sheet)",
+      "description": "Sheets needed from larger size"
+    },
+    "yis_after": {
+      "formula": "(quantity_in_stock + pieces_produced) / purchased",
+      "description": "YIS after cutting/ordering"
+    },
+    "half_cascade_check": {
+      "formula": "(half_stock - 2) / (half_purchased / 12) >= 0.40",
+      "description": "Bullseye 3mm: Can cascade Half to Full equiv?",
+      "requirements": ["half_stock >= 2", "YIS after >= 0.40"]
     }
   }
 }

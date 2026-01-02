@@ -81,29 +81,36 @@ def visualizer():
     - Live path tracing canvas
     - Node feedback system
     """
-    wiki_dir = get_wiki_dir()
-
-    # Get all available trees from wiki
-    trees = get_available_trees(wiki_dir)
-    tree_list = [
-        {
-            'id': tree_id,
-            'title': tree_data.get('metadata', {}).get('title', tree_id),
-            'description': tree_data.get('metadata', {}).get('description', ''),
-            'node_count': tree_data.get('metadata', {}).get('node_count', 0),
-            'edge_count': tree_data.get('metadata', {}).get('edge_count', 0),
-        }
-        for tree_id, tree_data in trees.items()
-    ]
+    # Get the engine (loads from config/decision_trees/)
+    engine = get_engine()
 
     # Get vendor list for dropdown
-    engine = get_engine()
     vendors = engine.get_vendor_list()
     vendor_details = engine.get_vendors().get('vendors', {})
 
-    # Get the first tree or empty
-    default_tree = list(trees.values())[0] if trees else {'tree': {'nodes': {}, 'edges': []}}
-    default_tree_id = list(trees.keys())[0] if trees else None
+    # Get the master logic tree from engine (master_logic.json)
+    master_tree = engine.get_tree()
+
+    # Also check for wiki-based trees
+    wiki_dir = get_wiki_dir()
+    try:
+        trees = get_available_trees(wiki_dir)
+        tree_list = [
+            {
+                'id': tree_id,
+                'title': tree_data.get('metadata', {}).get('title', tree_id),
+                'description': tree_data.get('metadata', {}).get('description', ''),
+                'node_count': tree_data.get('metadata', {}).get('node_count', 0),
+                'edge_count': tree_data.get('metadata', {}).get('edge_count', 0),
+            }
+            for tree_id, tree_data in trees.items()
+        ]
+    except Exception:
+        tree_list = []
+
+    # Use master_logic.json as the primary tree
+    default_tree = master_tree if master_tree else {'tree': {'nodes': {}, 'edges': []}}
+    default_tree_id = 'master_logic'
 
     # Load feedback counts for nodes with unresolved comments
     feedback = load_feedback()

@@ -111,8 +111,8 @@
                     <!-- Grid Background -->
                     <div class="canvas-grid"></div>
 
-                    <!-- SVG Tree -->
-                    <svg id="tree-svg" class="tree-svg" viewBox="0 0 800 600">
+                    <!-- SVG Tree - Larger viewBox for comprehensive tree -->
+                    <svg id="tree-svg" class="tree-svg" viewBox="0 0 1200 1400">
                         <defs>
                             <marker id="arrow-active" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
                                 <polygon points="0 0, 10 3.5, 0 7" fill="#4f46e5"/>
@@ -172,25 +172,73 @@
     </div>
 </div>
 
-<!-- Initial Data -->
+<!-- Initial Data - Loaded from backend JSON files -->
 <script>
+// Convert nodes object to array format and normalize positions to percentages
+function convertTreeFormat(treeData) {
+    if (!treeData || !treeData.tree) return { nodes: [], edges: [] };
+
+    const tree = treeData.tree;
+    const nodesObj = tree.nodes || {};
+    const edges = tree.edges || [];
+
+    // Find position bounds for normalization
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    Object.values(nodesObj).forEach(node => {
+        const pos = node.position || { x: 0, y: 0 };
+        if (pos.x < minX) minX = pos.x;
+        if (pos.x > maxX) maxX = pos.x;
+        if (pos.y < minY) minY = pos.y;
+        if (pos.y > maxY) maxY = pos.y;
+    });
+
+    // Add padding
+    const rangeX = (maxX - minX) || 1;
+    const rangeY = (maxY - minY) || 1;
+    const padX = rangeX * 0.1;
+    const padY = rangeY * 0.1;
+
+    // Convert nodes to array with normalized positions (5-95% range)
+    const nodes = Object.entries(nodesObj).map(([id, node]) => {
+        const pos = node.position || { x: 50, y: 50 };
+        return {
+            id: id,
+            label: node.label || id,
+            type: node.type || 'decision',
+            description: node.description || '',
+            phase: node.phase || 'analysis',
+            // Normalize to 5-95% range
+            x: 5 + ((pos.x - minX + padX) / (rangeX + 2*padX)) * 90,
+            y: 5 + ((pos.y - minY + padY) / (rangeY + 2*padY)) * 90
+        };
+    });
+
+    return { nodes, edges };
+}
+
+// Load master logic from backend
+{% if tree and tree.tree %}
+window.MASTER_LOGIC = convertTreeFormat({{ tree | tojson | safe }});
+{% else %}
+// Fallback simple tree
 window.MASTER_LOGIC = {
     nodes: [
-        { id: "start", label: "Start Evaluation", type: "start", x: 50, y: 5 },
+        { id: "START", label: "Start Evaluation", type: "start", x: 50, y: 5 },
         { id: "check_stock", label: "Stock < Vendor Threshold?", type: "decision", x: 50, y: 30 },
-        { id: "stock_ok", label: "Stock Sufficient", type: "end", x: 80, y: 50 },
+        { id: "stock_ok", label: "Stock Sufficient", type: "result", x: 80, y: 50 },
         { id: "check_cascade", label: "Can Cascade?", type: "decision", x: 20, y: 50 },
-        { id: "cut_sheet", label: "Generate Cut Sheet", type: "end", x: 5, y: 80 },
-        { id: "place_order", label: "Place Vendor Order", type: "end", x: 35, y: 80 }
+        { id: "cut_sheet", label: "Generate Cut Sheet", type: "result", x: 5, y: 80 },
+        { id: "place_order", label: "Place Vendor Order", type: "result", x: 35, y: 80 }
     ],
     edges: [
-        { from: "start", to: "check_stock" },
-        { from: "check_stock", to: "stock_ok", label: "High Stock (>= {threshold_years})", condition: { field: "yearsInStock", operator: ">=", value: "{threshold_years}" } },
-        { from: "check_stock", to: "check_cascade", label: "Low Stock (< {threshold_years})", condition: { field: "yearsInStock", operator: "<", value: "{threshold_years}" } },
-        { from: "check_cascade", to: "cut_sheet", label: "Cascade Possible", condition: { complex_logic: "cascade_check" } },
-        { from: "check_cascade", to: "place_order", label: "Must Buy", condition: { complex_logic: "fallback" } }
+        { id: "e1", from: "START", to: "check_stock" },
+        { id: "e2", from: "check_stock", to: "stock_ok", label: "High Stock (>= {threshold_years})", condition: { field: "yearsInStock", operator: ">=", value: "{threshold_years}" } },
+        { id: "e3", from: "check_stock", to: "check_cascade", label: "Low Stock (< {threshold_years})", condition: { field: "yearsInStock", operator: "<", value: "{threshold_years}" } },
+        { id: "e4", from: "check_cascade", to: "cut_sheet", label: "Cascade Possible", condition: { complex_logic: "cascade_check" } },
+        { id: "e5", from: "check_cascade", to: "place_order", label: "Must Buy", condition: { complex_logic: "fallback" } }
     ]
 };
+{% endif %}
 
 // Dynamically generated from backend vendor data
 window.VENDORS = {
@@ -200,12 +248,21 @@ window.VENDORS = {
         description: "{{ vendor_data.description | default('') }}",
         threshold_years: {{ vendor_data.parameters.threshold_years if vendor_data.parameters else 0.30 }},
         target_years: {{ vendor_data.parameters.target_years if vendor_data.parameters else 0.35 }},
+        lean_threshold: {{ vendor_data.parameters.lean_threshold if vendor_data.parameters else 0.15 }},
+        well_stocked_threshold: {{ vendor_data.parameters.well_stocked_threshold if vendor_data.parameters else 0.40 }},
+        overstocked_threshold: {{ vendor_data.parameters.overstocked_threshold if vendor_data.parameters else 0.50 }},
+        source_min_yis: {{ vendor_data.parameters.source_min_yis if vendor_data.parameters else 0.20 }},
         allow_cascade: {{ 'true' if vendor_data.parameters and vendor_data.parameters.allow_cascade else 'false' }},
+        has_special_rules: {{ 'true' if vendor_data.parameters and vendor_data.parameters.has_special_rules else 'false' }},
         rounding_multiple: {{ vendor_data.parameters.rounding_multiple if vendor_data.parameters and vendor_data.parameters.rounding_multiple else 1 }},
+        zero_stock_bonus: {{ vendor_data.parameters.zero_stock_bonus if vendor_data.parameters and vendor_data.parameters.zero_stock_bonus else 0 }},
         color: "{{ vendor_data.display.color if vendor_data.display else '#616161' }}"
     }{% if not loop.last %},{% endif %}
     {% endfor %}
 };
+
+console.log('Loaded MASTER_LOGIC:', window.MASTER_LOGIC);
+console.log('Loaded VENDORS:', window.VENDORS);
 </script>
 {% endblock %}
 
