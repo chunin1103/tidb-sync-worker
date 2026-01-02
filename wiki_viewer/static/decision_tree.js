@@ -29,6 +29,10 @@ class DecisionTreeApp {
         };
         this.activePath = new Set();
 
+        // Canvas dimensions (match SVG viewBox)
+        this.canvasWidth = 1200;
+        this.canvasHeight = 1400;
+
         // Zoom and pan state
         this.scale = 1;
         this.panX = 0;
@@ -382,8 +386,21 @@ class DecisionTreeApp {
     }
 
     renderNode(node) {
-        const x = (node.x / 100) * 800;
-        const y = (node.y / 100) * 600;
+        // Use raw position if available (from JSON), otherwise use percentage
+        let x, y;
+        if (node.position) {
+            // Direct pixel position from master_logic.json
+            x = node.position.x;
+            y = node.position.y;
+        } else if (typeof node.x === 'number' && typeof node.y === 'number') {
+            // Percentage-based position (from convertTreeFormat)
+            x = (node.x / 100) * this.canvasWidth;
+            y = (node.y / 100) * this.canvasHeight;
+        } else {
+            // Fallback
+            x = 600;
+            y = 100;
+        }
         const isActive = this.activePath.has(node.id);
 
         const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
@@ -511,10 +528,22 @@ class DecisionTreeApp {
 
         if (!fromNode || !toNode) return;
 
-        const fromX = (fromNode.x / 100) * 800;
-        const fromY = (fromNode.y / 100) * 600;
-        const toX = (toNode.x / 100) * 800;
-        const toY = (toNode.y / 100) * 600;
+        // Get positions using same logic as renderNode
+        const getPos = (node) => {
+            if (node.position) {
+                return { x: node.position.x, y: node.position.y };
+            } else if (typeof node.x === 'number' && typeof node.y === 'number') {
+                return { x: (node.x / 100) * this.canvasWidth, y: (node.y / 100) * this.canvasHeight };
+            }
+            return { x: 600, y: 100 };
+        };
+
+        const fromPos = getPos(fromNode);
+        const toPos = getPos(toNode);
+        const fromX = fromPos.x;
+        const fromY = fromPos.y;
+        const toX = toPos.x;
+        const toY = toPos.y;
 
         const isActive = this.activePath.has(edge.from) && this.activePath.has(edge.to);
 

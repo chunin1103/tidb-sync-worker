@@ -174,7 +174,7 @@
 
 <!-- Initial Data - Loaded from backend JSON files -->
 <script>
-// Convert nodes object to array format and normalize positions to percentages
+// Convert nodes object to array format, preserving position data
 function convertTreeFormat(treeData) {
     if (!treeData || !treeData.tree) return { nodes: [], edges: [] };
 
@@ -182,34 +182,20 @@ function convertTreeFormat(treeData) {
     const nodesObj = tree.nodes || {};
     const edges = tree.edges || [];
 
-    // Find position bounds for normalization
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    Object.values(nodesObj).forEach(node => {
-        const pos = node.position || { x: 0, y: 0 };
-        if (pos.x < minX) minX = pos.x;
-        if (pos.x > maxX) maxX = pos.x;
-        if (pos.y < minY) minY = pos.y;
-        if (pos.y > maxY) maxY = pos.y;
-    });
-
-    // Add padding
-    const rangeX = (maxX - minX) || 1;
-    const rangeY = (maxY - minY) || 1;
-    const padX = rangeX * 0.1;
-    const padY = rangeY * 0.1;
-
-    // Convert nodes to array with normalized positions (5-95% range)
+    // Convert nodes to array, preserving all properties including position
     const nodes = Object.entries(nodesObj).map(([id, node]) => {
-        const pos = node.position || { x: 50, y: 50 };
         return {
             id: id,
             label: node.label || id,
             type: node.type || 'decision',
             description: node.description || '',
             phase: node.phase || 'analysis',
-            // Normalize to 5-95% range
-            x: 5 + ((pos.x - minX + padX) / (rangeX + 2*padX)) * 90,
-            y: 5 + ((pos.y - minY + padY) / (rangeY + 2*padY)) * 90
+            // Preserve the original position object for direct pixel positioning
+            position: node.position || { x: 500, y: 100 },
+            // Also include condition and other node data
+            condition: node.condition,
+            result: node.result,
+            formula: node.formula
         };
     });
 
@@ -220,22 +206,22 @@ function convertTreeFormat(treeData) {
 {% if tree and tree.tree %}
 window.MASTER_LOGIC = convertTreeFormat({{ tree | tojson | safe }});
 {% else %}
-// Fallback simple tree
+// Fallback simple tree with pixel positions
 window.MASTER_LOGIC = {
     nodes: [
-        { id: "START", label: "Start Evaluation", type: "start", x: 50, y: 5 },
-        { id: "check_stock", label: "Stock < Vendor Threshold?", type: "decision", x: 50, y: 30 },
-        { id: "stock_ok", label: "Stock Sufficient", type: "result", x: 80, y: 50 },
-        { id: "check_cascade", label: "Can Cascade?", type: "decision", x: 20, y: 50 },
-        { id: "cut_sheet", label: "Generate Cut Sheet", type: "result", x: 5, y: 80 },
-        { id: "place_order", label: "Place Vendor Order", type: "result", x: 35, y: 80 }
+        { id: "START", label: "Start Evaluation", type: "start", position: { x: 600, y: 50 } },
+        { id: "check_stock", label: "Stock < Vendor Threshold?", type: "decision", position: { x: 600, y: 200 } },
+        { id: "stock_ok", label: "Stock Sufficient", type: "result", position: { x: 900, y: 400 } },
+        { id: "check_cascade", label: "Can Cascade?", type: "decision", position: { x: 300, y: 400 } },
+        { id: "cut_sheet", label: "Generate Cut Sheet", type: "result", position: { x: 150, y: 600 } },
+        { id: "place_order", label: "Place Vendor Order", type: "result", position: { x: 450, y: 600 } }
     ],
     edges: [
         { id: "e1", from: "START", to: "check_stock" },
-        { id: "e2", from: "check_stock", to: "stock_ok", label: "High Stock (>= {threshold_years})", condition: { field: "yearsInStock", operator: ">=", value: "{threshold_years}" } },
-        { id: "e3", from: "check_stock", to: "check_cascade", label: "Low Stock (< {threshold_years})", condition: { field: "yearsInStock", operator: "<", value: "{threshold_years}" } },
-        { id: "e4", from: "check_cascade", to: "cut_sheet", label: "Cascade Possible", condition: { complex_logic: "cascade_check" } },
-        { id: "e5", from: "check_cascade", to: "place_order", label: "Must Buy", condition: { complex_logic: "fallback" } }
+        { id: "e2", from: "check_stock", to: "stock_ok", label: "High Stock (>= {threshold_years})", condition: { field: "yearsInStock", operator: ">=", value: "{threshold_years}" }, condition_result: true },
+        { id: "e3", from: "check_stock", to: "check_cascade", label: "Low Stock (< {threshold_years})", condition: { field: "yearsInStock", operator: "<", value: "{threshold_years}" }, condition_result: false },
+        { id: "e4", from: "check_cascade", to: "cut_sheet", label: "Cascade Possible", condition: { complex_logic: "cascade_check" }, condition_result: true },
+        { id: "e5", from: "check_cascade", to: "place_order", label: "Must Buy", condition: { complex_logic: "fallback" }, condition_result: false }
     ]
 };
 {% endif %}
