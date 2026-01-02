@@ -1,0 +1,324 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "title": "Reorder Decision Tree",
+    "description": "Generic decision tree with vendor placeholders for inventory reorder decisions",
+    "created": "2026-01-02T00:00:00Z",
+    "last_modified": "2026-01-02T00:00:00Z"
+  },
+  "tree": {
+    "root": "START",
+    "nodes": {
+      "START": {
+        "id": "START",
+        "type": "start",
+        "label": "Start Evaluation",
+        "description": "Begin product reorder decision process",
+        "position": { "x": 400, "y": 50 }
+      },
+      "CHECK_SALES": {
+        "id": "CHECK_SALES",
+        "type": "decision",
+        "label": "Has Sales History?",
+        "description": "Check if the product has any sales (Purchased > 0)",
+        "condition": {
+          "field": "purchased",
+          "operator": ">",
+          "value": 0
+        },
+        "position": { "x": 400, "y": 150 }
+      },
+      "MANUAL_REVIEW": {
+        "id": "MANUAL_REVIEW",
+        "type": "result",
+        "label": "Manual Review Required",
+        "description": "No sales history - needs human decision",
+        "result": {
+          "action": "review",
+          "priority": "HIGH",
+          "reason": "No sales history - manual review needed",
+          "color": "#9c27b0"
+        },
+        "position": { "x": 150, "y": 250 }
+      },
+      "CALC_YIS": {
+        "id": "CALC_YIS",
+        "type": "calculation",
+        "label": "Calculate Years in Stock",
+        "description": "YIS = Quantity in Stock / Annual Purchased",
+        "formula": "quantity_in_stock / purchased",
+        "output_field": "years_in_stock",
+        "position": { "x": 400, "y": 280 }
+      },
+      "CHECK_ZERO_STOCK": {
+        "id": "CHECK_ZERO_STOCK",
+        "type": "decision",
+        "label": "Zero Stock?",
+        "description": "Check if current stock is zero (urgent situation)",
+        "condition": {
+          "field": "quantity_in_stock",
+          "operator": "==",
+          "value": 0
+        },
+        "position": { "x": 400, "y": 380 }
+      },
+      "URGENT_ORDER": {
+        "id": "URGENT_ORDER",
+        "type": "result",
+        "label": "URGENT: Order Required",
+        "description": "Zero stock - immediate order needed",
+        "result": {
+          "action": "order",
+          "priority": "URGENT",
+          "reason": "ZERO STOCK - Immediate order required",
+          "color": "#d32f2f",
+          "calculate_quantity": true,
+          "target_field": "{target_years}"
+        },
+        "position": { "x": 650, "y": 380 }
+      },
+      "CHECK_TARGET": {
+        "id": "CHECK_TARGET",
+        "type": "decision",
+        "label": "YIS >= {target_years}?",
+        "description": "Check if stock meets or exceeds target level",
+        "condition": {
+          "field": "years_in_stock",
+          "operator": ">=",
+          "value": "{target_years}"
+        },
+        "position": { "x": 400, "y": 480 }
+      },
+      "NO_REORDER": {
+        "id": "NO_REORDER",
+        "type": "result",
+        "label": "No Reorder Needed",
+        "description": "Stock is adequate - at or above target",
+        "result": {
+          "action": "none",
+          "priority": "LOW",
+          "reason": "Adequate stock (YIS >= {target_years} target)",
+          "color": "#4caf50"
+        },
+        "position": { "x": 650, "y": 480 }
+      },
+      "CHECK_THRESHOLD": {
+        "id": "CHECK_THRESHOLD",
+        "type": "decision",
+        "label": "YIS >= {threshold_years}?",
+        "description": "Check if stock is above minimum threshold",
+        "condition": {
+          "field": "years_in_stock",
+          "operator": ">=",
+          "value": "{threshold_years}"
+        },
+        "position": { "x": 400, "y": 580 }
+      },
+      "OPTIONAL_REORDER": {
+        "id": "OPTIONAL_REORDER",
+        "type": "result",
+        "label": "Optional Reorder",
+        "description": "Above threshold but below target - reorder is optional",
+        "result": {
+          "action": "optional",
+          "priority": "MEDIUM",
+          "reason": "Optional reorder (YIS between {threshold_years} and {target_years})",
+          "color": "#ff9800",
+          "calculate_quantity": true,
+          "target_field": "{target_years}"
+        },
+        "position": { "x": 650, "y": 580 }
+      },
+      "CHECK_LEAN": {
+        "id": "CHECK_LEAN",
+        "type": "decision",
+        "label": "YIS < {lean_threshold}?",
+        "description": "Check if stock is critically low (lean inventory)",
+        "condition": {
+          "field": "years_in_stock",
+          "operator": "<",
+          "value": "{lean_threshold}"
+        },
+        "position": { "x": 400, "y": 680 }
+      },
+      "LEAN_ORDER": {
+        "id": "LEAN_ORDER",
+        "type": "result",
+        "label": "LEAN: Order Required",
+        "description": "Critically low stock - order to reach target",
+        "result": {
+          "action": "order",
+          "priority": "HIGH",
+          "reason": "LEAN INVENTORY (YIS < {lean_threshold}) - Order to reach {target_years}",
+          "color": "#f44336",
+          "calculate_quantity": true,
+          "target_field": "{target_years}"
+        },
+        "position": { "x": 200, "y": 780 }
+      },
+      "CHECK_CASCADE": {
+        "id": "CHECK_CASCADE",
+        "type": "decision",
+        "label": "Cascade Allowed?",
+        "description": "Check if vendor allows cascade logic (cutting from larger sizes)",
+        "condition": {
+          "field": "{allow_cascade}",
+          "operator": "==",
+          "value": true
+        },
+        "position": { "x": 500, "y": 780 }
+      },
+      "CASCADE_CHECK": {
+        "id": "CASCADE_CHECK",
+        "type": "result",
+        "label": "Check Cascade Options",
+        "description": "Review cascade opportunities before ordering",
+        "result": {
+          "action": "cascade_review",
+          "priority": "MEDIUM",
+          "reason": "Below threshold (YIS < {threshold_years}) - Check cascade from larger sizes first",
+          "color": "#2196f3",
+          "calculate_quantity": true,
+          "target_field": "{target_years}",
+          "note": "Review cutting options before placing vendor order"
+        },
+        "position": { "x": 350, "y": 880 }
+      },
+      "ORDER_REQUIRED": {
+        "id": "ORDER_REQUIRED",
+        "type": "result",
+        "label": "Order Required",
+        "description": "Below threshold - must order from vendor",
+        "result": {
+          "action": "order",
+          "priority": "HIGH",
+          "reason": "Below threshold (YIS < {threshold_years}) - Order to reach {target_years}",
+          "color": "#f44336",
+          "calculate_quantity": true,
+          "target_field": "{target_years}"
+        },
+        "position": { "x": 650, "y": 880 }
+      }
+    },
+    "edges": [
+      {
+        "id": "e1",
+        "from": "START",
+        "to": "CHECK_SALES",
+        "label": "",
+        "style": "default"
+      },
+      {
+        "id": "e2",
+        "from": "CHECK_SALES",
+        "to": "CALC_YIS",
+        "label": "Yes",
+        "condition_result": true,
+        "style": "default"
+      },
+      {
+        "id": "e3",
+        "from": "CHECK_SALES",
+        "to": "MANUAL_REVIEW",
+        "label": "No (Purchased = 0)",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e4",
+        "from": "CALC_YIS",
+        "to": "CHECK_ZERO_STOCK",
+        "label": "",
+        "style": "default"
+      },
+      {
+        "id": "e5",
+        "from": "CHECK_ZERO_STOCK",
+        "to": "URGENT_ORDER",
+        "label": "Yes (Stock = 0)",
+        "condition_result": true,
+        "style": "urgent"
+      },
+      {
+        "id": "e6",
+        "from": "CHECK_ZERO_STOCK",
+        "to": "CHECK_TARGET",
+        "label": "No",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e7",
+        "from": "CHECK_TARGET",
+        "to": "NO_REORDER",
+        "label": "Yes (>= {target_years})",
+        "condition_result": true,
+        "style": "success"
+      },
+      {
+        "id": "e8",
+        "from": "CHECK_TARGET",
+        "to": "CHECK_THRESHOLD",
+        "label": "No (< {target_years})",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e9",
+        "from": "CHECK_THRESHOLD",
+        "to": "OPTIONAL_REORDER",
+        "label": "Yes (>= {threshold_years})",
+        "condition_result": true,
+        "style": "warning"
+      },
+      {
+        "id": "e10",
+        "from": "CHECK_THRESHOLD",
+        "to": "CHECK_LEAN",
+        "label": "No (< {threshold_years})",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e11",
+        "from": "CHECK_LEAN",
+        "to": "LEAN_ORDER",
+        "label": "Yes (< {lean_threshold})",
+        "condition_result": true,
+        "style": "danger"
+      },
+      {
+        "id": "e12",
+        "from": "CHECK_LEAN",
+        "to": "CHECK_CASCADE",
+        "label": "No",
+        "condition_result": false,
+        "style": "default"
+      },
+      {
+        "id": "e13",
+        "from": "CHECK_CASCADE",
+        "to": "CASCADE_CHECK",
+        "label": "Yes (Cascade OK)",
+        "condition_result": true,
+        "style": "info"
+      },
+      {
+        "id": "e14",
+        "from": "CHECK_CASCADE",
+        "to": "ORDER_REQUIRED",
+        "label": "No (No Cascade)",
+        "condition_result": false,
+        "style": "danger"
+      }
+    ]
+  },
+  "calculations": {
+    "reorder_quantity": {
+      "description": "Calculate units needed to reach target",
+      "formula": "(purchased * {target_years}) - quantity_in_stock",
+      "rounding": "{rounding_method}",
+      "minimum": 1
+    }
+  }
+}

@@ -1,0 +1,205 @@
+{% extends "wiki_base.html" %}
+
+{% block title %}Decision Tree Visualizer{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('wiki.static', filename='decision_tree.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dt-page">
+    <header class="dt-header">
+        <h1>Interactive Decision Tree Visualizer</h1>
+        <p class="dt-subtitle">Explore reorder logic with live path tracing - One Tree, Many Configurations</p>
+    </header>
+
+    <div class="dt-layout">
+        <!-- LEFT SIDEBAR -->
+        <aside class="dt-sidebar">
+            <!-- Vendor Selection -->
+            <section class="dt-section">
+                <h3><span class="section-num">1</span> Select Vendor</h3>
+                <select id="vendor-select" class="dt-select">
+                    <option value="">-- Select a Vendor --</option>
+                    {% for vendor in vendors %}
+                    <option value="{{ vendor.id }}" data-color="{{ vendor.color }}">
+                        {{ vendor.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+                <p class="dt-hint" id="vendor-hint">Choose a vendor to load their configuration parameters</p>
+            </section>
+
+            <!-- Active Rules Display -->
+            <section class="dt-section" id="rules-section" style="display: none;">
+                <h3><span class="section-num">2</span> Active Rules</h3>
+                <div class="rules-container">
+                    <table class="rules-table" id="rules-table">
+                        <tbody>
+                            <!-- Populated when vendor selected -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Test Inputs -->
+            <section class="dt-section" id="inputs-section" style="display: none;">
+                <h3><span class="section-num">3</span> Test Inputs</h3>
+                <div class="input-group">
+                    <label for="input-quantity">Quantity in Stock</label>
+                    <input type="number" id="input-quantity" class="dt-input" min="0" value="50" step="1">
+                </div>
+                <div class="input-group">
+                    <label for="input-purchased">Annual Purchased</label>
+                    <input type="number" id="input-purchased" class="dt-input" min="0" value="100" step="1">
+                </div>
+                <div class="input-group calculated">
+                    <label>Years in Stock</label>
+                    <span class="calc-value" id="calc-yis">0.50 years</span>
+                    <span class="calc-days" id="calc-days">(183 days)</span>
+                </div>
+                <button id="btn-evaluate" class="btn-primary">
+                    <span class="btn-icon">▶</span> Trace Path
+                </button>
+            </section>
+
+            <!-- Result Display -->
+            <section class="dt-section" id="result-section" style="display: none;">
+                <h3><span class="section-num">4</span> Result</h3>
+                <div id="result-display" class="result-box">
+                    <!-- Shows final decision -->
+                </div>
+            </section>
+
+            <!-- Admin Placeholder -->
+            <section class="dt-section dt-admin-placeholder">
+                <h3><span class="section-num">⚙</span> Admin Mode</h3>
+                <p class="placeholder-text">
+                    Logic editor coming in a future update.
+                    For now, edit <code>master_logic.json</code> and <code>vendors.json</code> directly.
+                </p>
+            </section>
+        </aside>
+
+        <!-- MAIN CANVAS -->
+        <main class="dt-canvas">
+            <!-- Canvas Toolbar -->
+            <div class="canvas-toolbar">
+                <div class="toolbar-left">
+                    <span class="toolbar-label" id="canvas-label">Select a vendor to begin</span>
+                </div>
+                <div class="toolbar-right">
+                    <button id="btn-zoom-in" class="toolbar-btn" title="Zoom In">+</button>
+                    <button id="btn-zoom-out" class="toolbar-btn" title="Zoom Out">−</button>
+                    <button id="btn-reset-view" class="toolbar-btn" title="Reset View">⟲</button>
+                    <button id="btn-fit-view" class="toolbar-btn" title="Fit to View">⬜</button>
+                </div>
+            </div>
+
+            <!-- SVG Container -->
+            <div class="canvas-container" id="canvas-container">
+                <svg id="decision-tree-svg" viewBox="0 0 900 950" preserveAspectRatio="xMidYMid meet">
+                    <defs>
+                        <!-- Arrow marker for edges -->
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7"
+                                refX="9" refY="3.5" orient="auto" fill="#9e9e9e">
+                            <polygon points="0 0, 10 3.5, 0 7" />
+                        </marker>
+                        <marker id="arrowhead-active" markerWidth="10" markerHeight="7"
+                                refX="9" refY="3.5" orient="auto" fill="#3f51b5">
+                            <polygon points="0 0, 10 3.5, 0 7" />
+                        </marker>
+
+                        <!-- Glow filter for active nodes -->
+                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+                            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur"/>
+                            <feMerge>
+                                <feMergeNode in="blur"/>
+                                <feMergeNode in="SourceGraphic"/>
+                            </feMerge>
+                        </filter>
+
+                        <!-- Drop shadow for nodes -->
+                        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+                        </filter>
+                    </defs>
+
+                    <!-- Background grid -->
+                    <g id="grid-layer" class="grid-layer">
+                        <!-- Optional grid pattern -->
+                    </g>
+
+                    <!-- Edges layer (behind nodes) -->
+                    <g id="edges-layer" class="edges-layer"></g>
+
+                    <!-- Nodes layer -->
+                    <g id="nodes-layer" class="nodes-layer"></g>
+
+                    <!-- Labels layer (on top) -->
+                    <g id="labels-layer" class="labels-layer"></g>
+                </svg>
+
+                <!-- Empty state message -->
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-icon">🌳</div>
+                    <h3>Decision Tree Visualizer</h3>
+                    <p>Select a vendor from the sidebar to load the decision tree with their specific parameters.</p>
+                    <p class="empty-hint">The tree structure remains the same - only the threshold values change!</p>
+                </div>
+            </div>
+
+            <!-- Node Detail Panel (floating) -->
+            <div id="node-detail-panel" class="node-detail" style="display: none;">
+                <button class="close-btn" id="close-detail">&times;</button>
+                <h4 id="detail-title">Node Title</h4>
+                <p id="detail-description">Node description...</p>
+                <div id="detail-condition" class="detail-condition"></div>
+            </div>
+
+            <!-- Legend -->
+            <div class="canvas-legend">
+                <div class="legend-title">Legend</div>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <span class="legend-shape start"></span>
+                        <span>Start</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-shape decision"></span>
+                        <span>Decision</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-shape calculation"></span>
+                        <span>Calculation</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-shape result"></span>
+                        <span>Result</span>
+                    </div>
+                </div>
+                <div class="legend-divider"></div>
+                <div class="legend-items">
+                    <div class="legend-item">
+                        <span class="legend-line active"></span>
+                        <span>Active Path</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-line inactive"></span>
+                        <span>Inactive</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<!-- Embed tree data for JS -->
+<script>
+    window.DECISION_TREE_DATA = {{ tree | tojson | safe }};
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('wiki.static', filename='decision_tree.js') }}"></script>
+{% endblock %}

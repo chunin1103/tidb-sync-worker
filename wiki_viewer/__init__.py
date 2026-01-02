@@ -32,3 +32,7 @@ wiki_bp = Blueprint(
 
 # Import routes after blueprint creation (to avoid circular imports)
 from . import routes
+
+# Register decision tree sub-blueprint
+from .decision_tree import decision_tree_bp
+wiki_bp.register_blueprint(decision_tree_bp)

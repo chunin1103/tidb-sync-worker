@@ -1,0 +1,168 @@
+{
+  "version": "1.0",
+  "metadata": {
+    "description": "Vendor-specific parameter configurations for the decision tree",
+    "last_modified": "2026-01-02T00:00:00Z"
+  },
+  "vendors": {
+    "bullseye": {
+      "id": "bullseye",
+      "name": "Bullseye Glass",
+      "description": "COE90 glass with cascade support - uses dual threshold logic",
+      "parameters": {
+        "threshold_years": 0.25,
+        "target_years": 0.40,
+        "lean_threshold": 0.20,
+        "allow_cascade": true,
+        "rounding_method": "ceil",
+        "rounding_multiple": 1
+      },
+      "metadata": {
+        "source": "bullseye_calculator.py",
+        "threshold_days": 91,
+        "target_days": 146,
+        "lean_days": 73,
+        "notes": "Uses 5-step cascade algorithm. 2 Half Sheets = 1 Full (3mm only)."
+      },
+      "cascade_rules": {
+        "enabled": true,
+        "half_to_full_ratio": 2,
+        "min_half_yis_after": 0.40,
+        "cutting_yields": {
+          "full_3mm": { "10x10": 6, "5x10": 2 },
+          "half_3mm": { "10x10": 2, "5x10": 2 },
+          "10x10": { "5x10": 2, "5x5": 4 },
+          "5x10": { "5x5": 2 }
+        }
+      },
+      "display": {
+        "color": "#e65100",
+        "icon": "fire"
+      }
+    },
+    "oceanside": {
+      "id": "oceanside",
+      "name": "Oceanside Glass",
+      "description": "COE96 glass with simpler single-threshold logic",
+      "parameters": {
+        "threshold_years": 0.35,
+        "target_years": 0.35,
+        "lean_threshold": 0.20,
+        "allow_cascade": false,
+        "rounding_method": "ceil",
+        "rounding_multiple": 1
+      },
+      "metadata": {
+        "source": "oceanside_calculator.py",
+        "threshold_days": 128,
+        "target_days": 128,
+        "lean_days": 73,
+        "notes": "Single threshold - order if below 0.35yr. Can zero 24x24 (5.9% of sales)."
+      },
+      "cutting_yields": {
+        "24x24": { "12x12": 4, "6x12": 8, "6x6": 16 },
+        "12x12": { "6x12": 2, "6x6": 4 },
+        "6x12": { "6x6": 2 }
+      },
+      "display": {
+        "color": "#0277bd",
+        "icon": "waves"
+      }
+    },
+    "cdv": {
+      "id": "cdv",
+      "name": "Color De Verre",
+      "description": "Casting molds with round-to-5 ordering logic",
+      "parameters": {
+        "threshold_years": 0.30,
+        "target_years": 0.40,
+        "lean_threshold": 0.15,
+        "allow_cascade": false,
+        "rounding_method": "ceil",
+        "rounding_multiple": 5,
+        "zero_stock_bonus": 10
+      },
+      "metadata": {
+        "source": "manual_entry",
+        "notes": "All orders must be multiples of 5. Add 10 units if zero stock. Dragonfly mold exception: always 100."
+      },
+      "special_rules": [
+        {
+          "name": "round_to_five",
+          "description": "All order quantities must be multiples of 5",
+          "type": "rounding"
+        },
+        {
+          "name": "zero_stock_bonus",
+          "description": "Add 10 units when stock is zero",
+          "type": "addition",
+          "value": 10
+        },
+        {
+          "name": "dragonfly_exception",
+          "description": "Dragonfly mold always orders 100 units",
+          "type": "override",
+          "pattern": "dragonfly",
+          "value": 100
+        }
+      ],
+      "display": {
+        "color": "#7b1fa2",
+        "icon": "palette"
+      }
+    },
+    "generic": {
+      "id": "generic",
+      "name": "Generic / Default",
+      "description": "Default vendor configuration for testing",
+      "parameters": {
+        "threshold_years": 0.30,
+        "target_years": 0.40,
+        "lean_threshold": 0.15,
+        "allow_cascade": false,
+        "rounding_method": "ceil",
+        "rounding_multiple": 1
+      },
+      "metadata": {
+        "source": "default",
+        "notes": "Generic configuration for testing and new vendors"
+      },
+      "display": {
+        "color": "#616161",
+        "icon": "settings"
+      }
+    }
+  },
+  "parameter_descriptions": {
+    "threshold_years": {
+      "label": "Order Decision Threshold",
+      "description": "Years in Stock below this triggers order consideration",
+      "unit": "years"
+    },
+    "target_years": {
+      "label": "Order Target Level",
+      "description": "Target inventory level to reach when ordering",
+      "unit": "years"
+    },
+    "lean_threshold": {
+      "label": "Lean Inventory Alert",
+      "description": "Years in Stock below this is critically low",
+      "unit": "years"
+    },
+    "allow_cascade": {
+      "label": "Cascade Logic Enabled",
+      "description": "Whether to check cutting opportunities before ordering",
+      "unit": "boolean"
+    },
+    "rounding_method": {
+      "label": "Rounding Method",
+      "description": "How to round calculated quantities (ceil, floor, round)",
+      "unit": "string"
+    },
+    "rounding_multiple": {
+      "label": "Rounding Multiple",
+      "description": "Round to nearest multiple of this value",
+      "unit": "integer"
+    }
+  }
+}
