@@ -1,369 +1,217 @@
 {% extends "wiki_base.html" %}
 
-{% block title %}Decision Tree Visualizer{% endblock %}
+{% block title %}Reorder Logic System{% endblock %}
 
 {% block extra_head %}
 <link rel="stylesheet" href="{{ url_for('wiki.static', filename='decision_tree.css') }}">
 {% endblock %}
 
 {% block content %}
-<div class="dt-page">
-    <!-- Top Header -->
-    <header class="dt-header">
-        <div class="dt-header-content">
-            <div class="dt-title-group">
-                <h1>Interactive Decision Tree Visualizer</h1>
-                <p class="dt-subtitle">One Tree, Many Configurations - Live path tracing with vendor-specific parameters</p>
+<div class="dt-app">
+    <!-- Top Bar -->
+    <header class="dt-topbar">
+        <div class="dt-brand">
+            <div class="dt-logo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/>
+                    <path d="M6 21V9a9 9 0 0 0 9 9h6"/>
+                </svg>
             </div>
-            <div class="dt-tree-selector">
-                <label for="tree-select">Decision Tree:</label>
-                <select id="tree-select" class="dt-select">
-                    {% for tree in tree_list %}
-                    <option value="{{ tree.id }}" {% if tree.id == default_tree_id %}selected{% endif %}>
-                        {{ tree.title }} ({{ tree.node_count }} nodes)
-                    </option>
-                    {% endfor %}
-                </select>
+            <div class="dt-title">
+                <h1>Reorder Logic System</h1>
+                <span class="dt-subtitle">One Tree, Many Configurations</span>
             </div>
+        </div>
+
+        <div class="dt-mode-tabs">
+            <button class="mode-tab active" data-mode="simulation">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Simulation
+            </button>
+            <button class="mode-tab" data-mode="logic_editor">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+                </svg>
+                Master Logic
+            </button>
+            <button class="mode-tab" data-mode="vendor_editor">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Vendor Config
+            </button>
         </div>
     </header>
 
-    <div class="dt-layout">
-        <!-- LEFT SIDEBAR -->
-        <aside class="dt-sidebar">
-            <!-- Vendor Selection Cards -->
-            <section class="dt-section">
-                <h3><span class="section-icon">1</span> Select Vendor</h3>
-                <div class="vendor-cards" id="vendor-cards">
-                    {% for vendor in vendors %}
-                    <button class="vendor-card" data-vendor-id="{{ vendor.id }}" data-color="{{ vendor.color }}">
-                        <span class="vendor-dot" style="background: {{ vendor.color }}"></span>
-                        <span class="vendor-name">{{ vendor.name }}</span>
-                    </button>
-                    {% endfor %}
-                </div>
-                <p class="dt-hint" id="vendor-hint">Select a vendor to apply their specific thresholds</p>
-            </section>
-
-            <!-- Active Rules Display -->
-            <section class="dt-section dt-rules-section" id="rules-section" style="display: none;">
-                <h3><span class="section-icon">2</span> Active Parameters</h3>
-                <div class="rules-container">
-                    <div class="rules-grid" id="rules-grid">
-                        <!-- Populated dynamically when vendor is selected -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- Test Inputs with Sliders -->
-            <section class="dt-section dt-inputs-section" id="inputs-section" style="display: none;">
-                <h3><span class="section-icon">3</span> Simulation Inputs</h3>
-
-                <div class="input-slider-group">
-                    <div class="slider-header">
-                        <label for="input-quantity">Quantity in Stock</label>
-                        <span class="slider-value" id="qty-value">50</span>
-                    </div>
-                    <input type="range" id="input-quantity" class="dt-slider"
-                           min="0" max="500" value="50" step="1">
-                    <div class="slider-labels">
-                        <span>0</span>
-                        <span>250</span>
-                        <span>500</span>
+    <div class="dt-main">
+        <!-- SIMULATION VIEW -->
+        <div id="simulation-view" class="dt-view active">
+            <!-- Left Sidebar -->
+            <aside class="dt-sidebar">
+                <!-- 1. Select Vendor -->
+                <div class="sidebar-section">
+                    <h2 class="section-title">1. Select Vendor</h2>
+                    <div class="vendor-grid" id="vendor-grid">
+                        {% for vendor in vendors %}
+                        <button class="vendor-btn" data-vendor-id="{{ vendor.id }}">
+                            {{ vendor.name }}
+                        </button>
+                        {% endfor %}
                     </div>
                 </div>
 
-                <div class="input-slider-group">
-                    <div class="slider-header">
-                        <label for="input-purchased">Annual Purchased</label>
-                        <span class="slider-value" id="purchased-value">100</span>
-                    </div>
-                    <input type="range" id="input-purchased" class="dt-slider"
-                           min="0" max="1000" value="100" step="1">
-                    <div class="slider-labels">
-                        <span>0</span>
-                        <span>500</span>
-                        <span>1000</span>
-                    </div>
-                </div>
-
-                <!-- Calculated Values -->
-                <div class="calculated-values">
-                    <div class="calc-row">
-                        <span class="calc-label">Years in Stock (YIS)</span>
-                        <span class="calc-result" id="calc-yis">0.50</span>
-                    </div>
-                    <div class="calc-row secondary">
-                        <span class="calc-label">Days Coverage</span>
-                        <span class="calc-result" id="calc-days">183 days</span>
-                    </div>
-                    <div class="yis-bar-container">
-                        <div class="yis-bar" id="yis-bar" style="width: 50%"></div>
-                        <div class="yis-threshold threshold-low" id="threshold-low" style="left: 25%"></div>
-                        <div class="yis-threshold threshold-target" id="threshold-target" style="left: 40%"></div>
-                    </div>
-                    <div class="yis-legend">
-                        <span class="legend-item"><span class="dot red"></span>Below threshold</span>
-                        <span class="legend-item"><span class="dot yellow"></span>OK</span>
-                        <span class="legend-item"><span class="dot green"></span>At/above target</span>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Result Display -->
-            <section class="dt-section dt-result-section" id="result-section" style="display: none;">
-                <h3><span class="section-icon">4</span> Decision Result</h3>
-                <div id="result-display" class="result-box">
-                    <div class="result-action" id="result-action">--</div>
-                    <div class="result-details">
-                        <div class="result-row">
-                            <span class="result-label">Priority</span>
-                            <span class="result-value" id="result-priority">--</span>
+                <!-- 2. Active Rules -->
+                <div class="sidebar-section rules-section" id="rules-section" style="display: none;">
+                    <h2 class="section-title">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
+                        Active Rules: <span id="active-vendor-name">--</span>
+                    </h2>
+                    <div class="rules-box">
+                        <div class="rule-row">
+                            <span class="rule-label">Threshold:</span>
+                            <span class="rule-value" id="rule-threshold">--</span>
                         </div>
-                        <div class="result-row" id="reorder-row" style="display: none;">
-                            <span class="result-label">Reorder Qty</span>
-                            <span class="result-value" id="result-reorder">--</span>
+                        <div class="rule-row">
+                            <span class="rule-label">Cascade Allowed:</span>
+                            <span class="rule-value" id="rule-cascade">--</span>
                         </div>
                     </div>
-                    <div class="result-reason" id="result-reason">Select a vendor and adjust inputs to trace path</div>
                 </div>
-            </section>
 
-            <!-- Path Summary -->
-            <section class="dt-section dt-path-section" id="path-section" style="display: none;">
-                <h3><span class="section-icon">5</span> Path Trace</h3>
-                <div class="path-summary" id="path-summary">
-                    <!-- Shows the sequence of nodes visited -->
-                </div>
-            </section>
+                <!-- 3. Test Data -->
+                <div class="sidebar-section" id="inputs-section" style="display: none;">
+                    <h2 class="section-title">2. Test Data</h2>
 
-            <!-- Feedback Summary -->
-            <section class="dt-section dt-feedback-summary-section" id="feedback-summary-section">
-                <h3><span class="section-icon">!</span> Feedback</h3>
-                <div class="feedback-summary">
-                    <span id="feedback-count">{{ feedback_counts|length }}</span> nodes with comments
-                    <span class="unresolved-badge" id="unresolved-badge" style="{% if not feedback_counts %}display:none{% endif %}">
-                        {{ feedback_counts.values()|sum if feedback_counts else 0 }} unresolved
-                    </span>
-                </div>
-            </section>
-        </aside>
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label>Years in Stock</label>
+                            <span class="input-value" id="yis-value">0.15</span>
+                        </div>
+                        <input type="range" id="yis-slider" class="slider" min="0" max="0.6" step="0.05" value="0.15">
+                    </div>
 
-        <!-- MAIN CANVAS -->
-        <main class="dt-canvas">
-            <!-- Canvas Toolbar -->
-            <div class="canvas-toolbar">
-                <div class="toolbar-left">
-                    <span class="toolbar-label" id="canvas-label">Select a vendor to begin</span>
-                    <span class="live-indicator" id="live-indicator" style="display: none;">
-                        <span class="live-dot"></span> LIVE
-                    </span>
+                    <div class="toggle-group">
+                        <span class="toggle-label">Has Larger Sheets?</span>
+                        <button class="toggle-btn active" id="cascade-toggle">
+                            <span class="toggle-knob"></span>
+                        </button>
+                    </div>
                 </div>
-                <div class="toolbar-center">
-                    <div class="zoom-display" id="zoom-display">100%</div>
+            </aside>
+
+            <!-- Main Canvas -->
+            <main class="dt-canvas">
+                <div class="canvas-wrapper">
+                    <!-- Grid Background -->
+                    <div class="canvas-grid"></div>
+
+                    <!-- SVG Tree -->
+                    <svg id="tree-svg" class="tree-svg" viewBox="0 0 800 600">
+                        <defs>
+                            <marker id="arrow-active" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#4f46e5"/>
+                            </marker>
+                            <marker id="arrow-inactive" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#e2e8f0"/>
+                            </marker>
+                        </defs>
+                        <g id="edges-layer"></g>
+                        <g id="nodes-layer"></g>
+                    </svg>
                 </div>
-                <div class="toolbar-right">
-                    <button id="btn-zoom-out" class="toolbar-btn" title="Zoom Out">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M3 8h10" stroke="currentColor" stroke-width="2" fill="none"/>
-                        </svg>
-                    </button>
-                    <button id="btn-zoom-in" class="toolbar-btn" title="Zoom In">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="2" fill="none"/>
-                        </svg>
-                    </button>
-                    <button id="btn-reset-view" class="toolbar-btn" title="Reset View">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <path d="M2 8a6 6 0 1 1 1.5 4" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                            <path d="M2 12V8h4" stroke="currentColor" stroke-width="1.5" fill="none"/>
-                        </svg>
-                    </button>
-                    <button id="btn-fit-view" class="toolbar-btn" title="Fit to View">
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                            <rect x="2" y="2" width="12" height="12" stroke="currentColor" stroke-width="1.5" fill="none" rx="1"/>
-                            <rect x="5" y="5" width="6" height="6" fill="currentColor" rx="0.5"/>
-                        </svg>
-                    </button>
+            </main>
+        </div>
+
+        <!-- LOGIC EDITOR VIEW -->
+        <div id="logic-view" class="dt-view editor-view">
+            <div class="editor-header">
+                <div class="editor-info">
+                    <h2>master_logic.json</h2>
+                    <p>Define the shape of the decision tree. Variables like {threshold_years} are resolved at runtime.</p>
                 </div>
+                <button class="btn-apply" id="btn-apply-logic">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Apply Changes
+                </button>
             </div>
-
-            <!-- SVG Container -->
-            <div class="canvas-container" id="canvas-container">
-                <svg id="decision-tree-svg" viewBox="0 0 1200 1600" preserveAspectRatio="xMidYMid meet">
-                    <defs>
-                        <!-- Arrow markers -->
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7"
-                                refX="9" refY="3.5" orient="auto" fill="#9e9e9e">
-                            <polygon points="0 0, 10 3.5, 0 7" />
-                        </marker>
-                        <marker id="arrowhead-active" markerWidth="10" markerHeight="7"
-                                refX="9" refY="3.5" orient="auto" fill="#3f51b5">
-                            <polygon points="0 0, 10 3.5, 0 7" />
-                        </marker>
-                        <marker id="arrowhead-success" markerWidth="10" markerHeight="7"
-                                refX="9" refY="3.5" orient="auto" fill="#4caf50">
-                            <polygon points="0 0, 10 3.5, 0 7" />
-                        </marker>
-                        <marker id="arrowhead-danger" markerWidth="10" markerHeight="7"
-                                refX="9" refY="3.5" orient="auto" fill="#f44336">
-                            <polygon points="0 0, 10 3.5, 0 7" />
-                        </marker>
-
-                        <!-- Glow filter for active nodes -->
-                        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
-                            <feMerge>
-                                <feMergeNode in="blur"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-
-                        <!-- Pulse animation for active path -->
-                        <filter id="pulse" x="-50%" y="-50%" width="200%" height="200%">
-                            <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
-                            <feColorMatrix in="blur" type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -7" result="glow"/>
-                            <feMerge>
-                                <feMergeNode in="glow"/>
-                                <feMergeNode in="SourceGraphic"/>
-                            </feMerge>
-                        </filter>
-
-                        <!-- Drop shadow for nodes -->
-                        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feDropShadow dx="1" dy="2" stdDeviation="2" flood-opacity="0.15"/>
-                        </filter>
-
-                        <!-- Gradient for start node -->
-                        <linearGradient id="start-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#4caf50;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#2e7d32;stop-opacity:1" />
-                        </linearGradient>
-
-                        <!-- Gradient for decision node -->
-                        <linearGradient id="decision-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" style="stop-color:#5c6bc0;stop-opacity:1" />
-                            <stop offset="100%" style="stop-color:#3f51b5;stop-opacity:1" />
-                        </linearGradient>
-                    </defs>
-
-                    <!-- Background grid (subtle) -->
-                    <g id="grid-layer" class="grid-layer">
-                        <pattern id="grid-pattern" width="50" height="50" patternUnits="userSpaceOnUse">
-                            <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(0,0,0,0.03)" stroke-width="1"/>
-                        </pattern>
-                        <rect width="100%" height="100%" fill="url(#grid-pattern)" />
-                    </g>
-
-                    <!-- Edges layer (behind nodes) -->
-                    <g id="edges-layer" class="edges-layer"></g>
-
-                    <!-- Nodes layer -->
-                    <g id="nodes-layer" class="nodes-layer"></g>
-
-                    <!-- Labels layer (on top) -->
-                    <g id="labels-layer" class="labels-layer"></g>
-
-                    <!-- Feedback indicators layer -->
-                    <g id="feedback-layer" class="feedback-layer"></g>
-                </svg>
-
-                <!-- Empty state message -->
-                <div class="empty-state" id="empty-state">
-                    <div class="empty-icon">
-                        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="#9e9e9e" stroke-width="2">
-                            <circle cx="32" cy="12" r="8"/>
-                            <line x1="32" y1="20" x2="32" y2="28"/>
-                            <path d="M 16 40 L 32 28 L 48 40"/>
-                            <circle cx="16" cy="48" r="6"/>
-                            <circle cx="48" cy="48" r="6"/>
-                            <line x1="16" y1="40" x2="16" y2="42"/>
-                            <line x1="48" y1="40" x2="48" y2="42"/>
-                        </svg>
-                    </div>
-                    <h3>Decision Tree Visualizer</h3>
-                    <p>Select a vendor from the sidebar to load the decision tree with their specific parameters.</p>
-                    <p class="empty-hint">The tree structure remains the same - only the threshold values change!</p>
-                </div>
+            <div class="editor-body">
+                <textarea id="logic-editor" class="code-editor" spellcheck="false"></textarea>
             </div>
+            <div class="editor-error" id="logic-error" style="display: none;"></div>
+        </div>
 
-            <!-- Node Detail Panel (floating) -->
-            <div id="node-detail-panel" class="node-detail" style="display: none;">
-                <div class="node-detail-header">
-                    <h4 id="detail-title">Node Title</h4>
-                    <button class="close-btn" id="close-detail">&times;</button>
+        <!-- VENDOR EDITOR VIEW -->
+        <div id="vendor-view" class="dt-view editor-view">
+            <div class="editor-header">
+                <div class="editor-info">
+                    <h2>vendors.json</h2>
+                    <p>Configure parameters for each vendor. These values replace placeholders in the master logic.</p>
                 </div>
-                <div class="node-detail-body">
-                    <p id="detail-description">Node description...</p>
-                    <div id="detail-condition" class="detail-condition"></div>
-                    <div id="detail-result" class="detail-result"></div>
-                </div>
-                <div class="node-detail-feedback" id="node-feedback-section">
-                    <div class="feedback-header">
-                        <span>Comments</span>
-                        <span class="feedback-count" id="detail-feedback-count">0</span>
-                    </div>
-                    <div class="feedback-list" id="detail-feedback-list">
-                        <!-- Comments populated here -->
-                    </div>
-                    <div class="feedback-form">
-                        <input type="text" id="feedback-author" placeholder="Your name" class="feedback-input">
-                        <textarea id="feedback-text" placeholder="Add a comment..." class="feedback-textarea"></textarea>
-                        <button id="btn-add-feedback" class="btn-add-feedback">Add Comment</button>
-                    </div>
-                </div>
+                <button class="btn-apply" id="btn-apply-vendors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Apply Changes
+                </button>
             </div>
-
-            <!-- Legend -->
-            <div class="canvas-legend">
-                <div class="legend-title">Node Types</div>
-                <div class="legend-items">
-                    <div class="legend-item">
-                        <span class="legend-shape start"></span>
-                        <span>Start</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-shape decision"></span>
-                        <span>Decision</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-shape calculation"></span>
-                        <span>Calculation</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-shape action"></span>
-                        <span>Action</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-shape result"></span>
-                        <span>Result</span>
-                    </div>
-                </div>
-                <div class="legend-divider"></div>
-                <div class="legend-items">
-                    <div class="legend-item">
-                        <span class="legend-line active"></span>
-                        <span>Active Path</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-line inactive"></span>
-                        <span>Inactive</span>
-                    </div>
-                    <div class="legend-item">
-                        <span class="legend-dot feedback"></span>
-                        <span>Has Feedback</span>
-                    </div>
-                </div>
+            <div class="editor-body">
+                <textarea id="vendor-editor" class="code-editor" spellcheck="false"></textarea>
             </div>
-        </main>
+            <div class="editor-error" id="vendor-error" style="display: none;"></div>
+        </div>
     </div>
 </div>
 
-<!-- Embed data for JS -->
+<!-- Initial Data -->
 <script>
-    window.DECISION_TREE_DATA = {{ tree | tojson | safe }};
-    window.FEEDBACK_COUNTS = {{ feedback_counts | tojson | safe }};
-    window.DEFAULT_TREE_ID = {{ default_tree_id | tojson | safe }};
+window.MASTER_LOGIC = {
+    nodes: [
+        { id: "start", label: "Start Evaluation", type: "start", x: 50, y: 5 },
+        { id: "check_stock", label: "Stock < Vendor Threshold?", type: "decision", x: 50, y: 30 },
+        { id: "stock_ok", label: "Stock Sufficient", type: "end", x: 80, y: 50 },
+        { id: "check_cascade", label: "Can Cascade?", type: "decision", x: 20, y: 50 },
+        { id: "cut_sheet", label: "Generate Cut Sheet", type: "end", x: 5, y: 80 },
+        { id: "place_order", label: "Place Vendor Order", type: "end", x: 35, y: 80 }
+    ],
+    edges: [
+        { from: "start", to: "check_stock" },
+        { from: "check_stock", to: "stock_ok", label: "High Stock (>= {threshold_years})", condition: { field: "yearsInStock", operator: ">=", value: "{threshold_years}" } },
+        { from: "check_stock", to: "check_cascade", label: "Low Stock (< {threshold_years})", condition: { field: "yearsInStock", operator: "<", value: "{threshold_years}" } },
+        { from: "check_cascade", to: "cut_sheet", label: "Cascade Possible", condition: { complex_logic: "cascade_check" } },
+        { from: "check_cascade", to: "place_order", label: "Must Buy", condition: { complex_logic: "fallback" } }
+    ]
+};
+
+window.VENDORS = {
+    "Bullseye": {
+        name: "Bullseye",
+        description: "Premium Art Glass",
+        threshold_years: 0.25,
+        allow_cascade: true
+    },
+    "Oceanside": {
+        name: "Oceanside",
+        description: "Standard Fusible",
+        threshold_years: 0.35,
+        allow_cascade: false
+    },
+    "Generic_Importer": {
+        name: "Generic",
+        description: "Budget Clear Glass",
+        threshold_years: 0.10,
+        allow_cascade: false
+    }
+};
 </script>
 {% endblock %}
 
