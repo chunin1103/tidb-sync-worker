@@ -192,25 +192,19 @@ window.MASTER_LOGIC = {
     ]
 };
 
+// Dynamically generated from backend vendor data
 window.VENDORS = {
-    "Bullseye": {
-        name: "Bullseye",
-        description: "Premium Art Glass",
-        threshold_years: 0.25,
-        allow_cascade: true
-    },
-    "Oceanside": {
-        name: "Oceanside",
-        description: "Standard Fusible",
-        threshold_years: 0.35,
-        allow_cascade: false
-    },
-    "Generic_Importer": {
-        name: "Generic",
-        description: "Budget Clear Glass",
-        threshold_years: 0.10,
-        allow_cascade: false
-    }
+    {% for vendor_id, vendor_data in vendor_details.items() %}
+    "{{ vendor_id }}": {
+        name: "{{ vendor_data.name | default(vendor_id) }}",
+        description: "{{ vendor_data.description | default('') }}",
+        threshold_years: {{ vendor_data.parameters.threshold_years if vendor_data.parameters else 0.30 }},
+        target_years: {{ vendor_data.parameters.target_years if vendor_data.parameters else 0.35 }},
+        allow_cascade: {{ 'true' if vendor_data.parameters and vendor_data.parameters.allow_cascade else 'false' }},
+        rounding_multiple: {{ vendor_data.parameters.rounding_multiple if vendor_data.parameters and vendor_data.parameters.rounding_multiple else 1 }},
+        color: "{{ vendor_data.display.color if vendor_data.display else '#616161' }}"
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
 };
 </script>
 {% endblock %}

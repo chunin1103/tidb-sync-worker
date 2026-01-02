@@ -422,11 +422,14 @@
 /* SVG Nodes */
 .node-group {
     cursor: pointer;
-    transition: transform 0.15s ease;
 }
 
-.node-group:hover {
-    transform: scale(1.02);
+.node-group:hover rect {
+    filter: drop-shadow(0 4px 8px rgba(79, 70, 229, 0.3));
+}
+
+.node-group:hover .node-label-text {
+    fill: var(--primary);
 }
 
 .node-icon {

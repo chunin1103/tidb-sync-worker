@@ -140,7 +140,12 @@ class DecisionTreeApp {
         this.currentVendorId = vendorId;
         this.currentVendor = this.vendors[vendorId];
 
-        if (!this.currentVendor) return;
+        if (!this.currentVendor) {
+            console.warn(`Vendor not found: "${vendorId}". Available vendors:`, Object.keys(this.vendors));
+            return;
+        }
+
+        console.log(`Selected vendor: ${vendorId}`, this.currentVendor);
 
         // Show rules section
         if (this.rulesSection) {
@@ -211,6 +216,7 @@ class DecisionTreeApp {
 
     calculatePath() {
         this.activePath = new Set();
+        this.activeEdges = new Set();
 
         if (!this.currentVendor) return;
 
@@ -226,8 +232,18 @@ class DecisionTreeApp {
                 e.from === currentNodeId && this.evaluateCondition(e.condition)
             );
 
+            if (edge) {
+                this.activeEdges.add(`${edge.from}->${edge.to}`);
+            }
+
             currentNodeId = edge ? edge.to : null;
         }
+
+        console.log('Path calculated:', {
+            path: Array.from(this.activePath),
+            yearsInStock: this.simData.yearsInStock,
+            threshold: this.currentVendor.threshold_years
+        });
     }
 
     evaluateCondition(condition) {

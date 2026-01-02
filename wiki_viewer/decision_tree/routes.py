@@ -99,6 +99,7 @@ def visualizer():
     # Get vendor list for dropdown
     engine = get_engine()
     vendors = engine.get_vendor_list()
+    vendor_details = engine.get_vendors().get('vendors', {})
 
     # Get the first tree or empty
     default_tree = list(trees.values())[0] if trees else {'tree': {'nodes': {}, 'edges': []}}
@@ -115,6 +116,7 @@ def visualizer():
     return render_template(
         'decision_tree.html',
         vendors=vendors,
+        vendor_details=vendor_details,
         tree=default_tree,
         tree_list=tree_list,
         default_tree_id=default_tree_id,
