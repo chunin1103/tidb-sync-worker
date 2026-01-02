@@ -15,9 +15,10 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 30px 20px;
+            line-height: 1.6;
         }
         .container {
-            max-width: 1400px;
+            max-width: 1200px;
             margin: 0 auto;
         }
         .header {
@@ -109,34 +110,38 @@
         .reset-btn:hover {
             background: #777 !important;
         }
-        .questions-table {
+
+        /* Card-based layout for questions */
+        .questions-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .question-card {
             background: white;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             overflow: hidden;
+            transition: box-shadow 0.3s;
         }
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .question-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.15);
         }
-        thead {
+        .question-header {
+            padding: 20px;
             background: #f8f9fa;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
         }
-        th {
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-            color: #333;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        td {
-            padding: 15px;
-            border-top: 1px solid #e0e0e0;
-        }
-        tbody tr:hover {
-            background: #f8f9fa;
+        .question-meta {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
         }
         .priority-badge {
             display: inline-block;
@@ -173,64 +178,6 @@
             background: #fff3e0;
             color: #e65100;
         }
-        .product-name {
-            font-weight: 500;
-            color: #333;
-            font-size: 13px;
-        }
-        .product-id {
-            color: #999;
-            font-size: 11px;
-        }
-        .question-text {
-            color: #555;
-            font-size: 13px;
-            line-height: 1.5;
-            max-width: 400px;
-        }
-        .answer-box {
-            width: 100%;
-            padding: 8px;
-            border: 2px solid #e0e0e0;
-            border-radius: 6px;
-            font-size: 13px;
-            font-family: inherit;
-        }
-        .answer-box:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-        .answer-box[readonly] {
-            background: #f8f9fa;
-            color: #666;
-        }
-        .save-btn {
-            padding: 6px 14px;
-            background: #4caf50;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .save-btn:hover {
-            background: #45a049;
-        }
-        .timestamp {
-            color: #999;
-            font-size: 11px;
-        }
-        .no-questions {
-            text-align: center;
-            padding: 60px 20px;
-            color: #666;
-        }
-        .no-questions h3 {
-            color: #999;
-            margin-bottom: 10px;
-        }
         .manufacturer-tag {
             display: inline-block;
             padding: 3px 8px;
@@ -239,6 +186,267 @@
             border-radius: 4px;
             font-size: 10px;
             font-weight: 500;
+        }
+        .timestamp {
+            color: #999;
+            font-size: 11px;
+        }
+
+        .question-body {
+            padding: 25px;
+        }
+        .product-info {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .product-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        .product-id {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .question-section {
+            margin-bottom: 25px;
+        }
+        .section-label {
+            font-size: 11px;
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .question-content {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+            color: #333;
+            font-size: 14px;
+            line-height: 1.7;
+        }
+
+        /* Markdown styling for questions */
+        .question-content h1,
+        .question-content h2,
+        .question-content h3 {
+            margin-top: 15px;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .question-content h1 { font-size: 20px; }
+        .question-content h2 { font-size: 18px; }
+        .question-content h3 { font-size: 16px; }
+        .question-content p {
+            margin-bottom: 10px;
+        }
+        .question-content strong {
+            font-weight: 600;
+            color: #000;
+        }
+        .question-content em {
+            font-style: italic;
+            color: #555;
+        }
+        .question-content code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            color: #e91e63;
+            border: 1px solid #e0e0e0;
+        }
+        .question-content pre {
+            background: #263238;
+            color: #aed581;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .question-content pre code {
+            background: none;
+            border: none;
+            color: inherit;
+            padding: 0;
+        }
+        .question-content ul,
+        .question-content ol {
+            margin-left: 25px;
+            margin-bottom: 10px;
+        }
+        .question-content li {
+            margin-bottom: 5px;
+        }
+
+        /* Table styling for markdown tables */
+        .question-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: white;
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .question-content table thead {
+            background: #667eea;
+            color: white;
+        }
+        .question-content table th {
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .question-content table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+            font-size: 13px;
+        }
+        .question-content table tbody tr:hover {
+            background: #f8f9fa;
+        }
+        .question-content table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .suggested-answer-section {
+            margin-bottom: 20px;
+        }
+        .suggested-answer-content {
+            background: #fffbf0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ff9800;
+            font-size: 13px;
+            color: #555;
+        }
+
+        .answer-form {
+            margin-top: 20px;
+        }
+        .answer-textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .answer-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .answer-textarea[readonly] {
+            background: #f8f9fa;
+            color: #666;
+            cursor: not-allowed;
+        }
+        .answer-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .save-btn {
+            padding: 10px 24px;
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+        .save-btn:hover {
+            background: #45a049;
+            transform: translateY(-1px);
+        }
+        .save-btn:active {
+            transform: translateY(0);
+        }
+        .char-count {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .answered-info {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #4caf50;
+        }
+        .answered-info .answer-text {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 8px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .no-questions {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .no-questions h3 {
+            color: #999;
+            margin-bottom: 10px;
+        }
+        .no-questions p {
+            color: #666;
+        }
+
+        /* Collapsible toggle */
+        .toggle-section {
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .toggle-section:hover {
+            color: #667eea;
+        }
+        .toggle-icon {
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+        .toggle-icon.expanded {
+            transform: rotate(90deg);
+        }
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .collapsible-content.expanded {
+            max-height: 2000px;
+        }
+
+        @media (max-width: 768px) {
+            .question-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
         }
     </style>
 </head>
@@ -301,62 +509,100 @@
         </div>
 
         {% if questions %}
-        <div class="questions-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Priority</th>
-                        <th>Status</th>
-                        <th>Manufacturer</th>
-                        <th>Product</th>
-                        <th>Question</th>
-                        <th>Suggested Answer</th>
-                        <th>Your Answer</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for q in questions %}
-                    <tr>
-                        <td class="timestamp">{{ q.created_at.strftime('%Y-%m-%d %H:%M') if q.created_at else 'N/A' }}</td>
-                        <td><span class="priority-badge priority-{{ q.priority }}">{{ q.priority }}</span></td>
-                        <td><span class="status-badge status-{{ q.status }}">{{ q.status }}</span></td>
-                        <td><span class="manufacturer-tag">{{ q.manufacturer }}</span></td>
-                        <td>
-                            <div class="product-name">{{ q.product_name[:40] }}...</div>
-                            <div class="product-id">ID: {{ q.product_id }}</div>
-                        </td>
-                        <td>
-                            <div class="question-text">{{ q.question_text }}</div>
-                        </td>
-                        <td>
-                            <div style="font-size: 12px; color: #666;">{{ q.suggested_answer[:50] }}...</div>
-                        </td>
-                        <td>
-                            {% if q.status == 'Pending' %}
-                            <form action="/reports/reorder-calculator/save-answer" method="POST" style="display: flex; gap: 8px;">
-                                <input type="hidden" name="question_id" value="{{ q.question_id }}">
-                                <input type="text" name="answer" class="answer-box" placeholder="Type your answer..." value="{{ q.suggested_answer }}">
-                                <button type="submit" class="save-btn">Save</button>
-                            </form>
-                            {% else %}
-                            <input type="text" class="answer-box" value="{{ q.client_answer }}" readonly>
-                            <div class="timestamp">{{ q.answered_at.strftime('%Y-%m-%d %H:%M') if q.answered_at else '' }}</div>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="questions-container">
+            {% for q in questions %}
+            <div class="question-card">
+                <div class="question-header">
+                    <div class="question-meta">
+                        <span class="priority-badge priority-{{ q.priority }}">{{ q.priority }}</span>
+                        <span class="status-badge status-{{ q.status }}">{{ q.status }}</span>
+                        <span class="manufacturer-tag">{{ q.manufacturer }}</span>
+                        <span class="timestamp">{{ q.created_at.strftime('%Y-%m-%d %H:%M') if q.created_at else 'N/A' }}</span>
+                    </div>
+                </div>
+
+                <div class="question-body">
+                    <div class="product-info">
+                        <div class="product-name">{{ q.product_name }}</div>
+                        <div class="product-id">Product ID: {{ q.product_id }}</div>
+                    </div>
+
+                    <div class="question-section">
+                        <div class="section-label">❓ Question</div>
+                        <div class="question-content">
+                            {{ q.question_html | safe }}
+                        </div>
+                    </div>
+
+                    {% if q.suggested_answer %}
+                    <div class="suggested-answer-section">
+                        <div class="section-label">💡 Suggested Answer</div>
+                        <div class="suggested-answer-content">
+                            {{ q.suggested_answer_html | safe }}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if q.status == 'Pending' %}
+                    <div class="answer-form">
+                        <form action="/reports/reorder-calculator/save-answer" method="POST">
+                            <div class="section-label">✍️ Your Answer</div>
+                            <input type="hidden" name="question_id" value="{{ q.question_id }}">
+                            <textarea
+                                name="answer"
+                                class="answer-textarea"
+                                placeholder="Type your detailed answer here... (supports multiple lines)"
+                                oninput="updateCharCount(this)"
+                                required>{{ q.suggested_answer if q.suggested_answer else '' }}</textarea>
+                            <div class="answer-actions">
+                                <span class="char-count">0 characters</span>
+                                <button type="submit" class="save-btn">💾 Save Answer</button>
+                            </div>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="answered-info">
+                        <div class="section-label">✅ Answered</div>
+                        <div class="answer-text">{{ q.client_answer }}</div>
+                        <div class="timestamp">Answered: {{ q.answered_at.strftime('%Y-%m-%d %H:%M') if q.answered_at else 'N/A' }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
         </div>
         {% else %}
-        <div class="questions-table">
-            <div class="no-questions">
-                <h3>No questions found</h3>
-                <p>Try adjusting your filters or upload a CSV to generate questions.</p>
-            </div>
+        <div class="no-questions">
+            <h3>No questions found</h3>
+            <p>Try adjusting your filters or upload a CSV to generate questions.</p>
         </div>
         {% endif %}
     </div>
+
+    <script>
+        // Character counter for textareas
+        function updateCharCount(textarea) {
+            const count = textarea.value.length;
+            const counter = textarea.closest('.answer-form').querySelector('.char-count');
+            if (counter) {
+                counter.textContent = `${count} character${count !== 1 ? 's' : ''}`;
+            }
+        }
+
+        // Initialize character counters on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.answer-textarea').forEach(textarea => {
+                updateCharCount(textarea);
+            });
+        });
+
+        // Auto-expand textarea as user types
+        document.querySelectorAll('.answer-textarea').forEach(textarea => {
+            textarea.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.max(120, this.scrollHeight) + 'px';
+            });
+        });
+    </script>
 </body>
 </html>

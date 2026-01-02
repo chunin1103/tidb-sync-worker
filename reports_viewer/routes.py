@@ -6,6 +6,7 @@ import os
 import uuid
 import sqlite3
 import pandas as pd
+import markdown
 from flask import render_template, request, redirect, Response, jsonify, url_for
 from . import reports_bp
 from .decision_engine import OceansideCalculator, BullseyeCalculator
@@ -326,6 +327,18 @@ def all_questions_dashboard():
 
     # Get questions from database
     questions = get_all_questions(limit=limit, answered=answered, priority=priority_filter)
+
+    # Render markdown for each question (supports tables, bold, code, etc.)
+    md = markdown.Markdown(extensions=['tables', 'fenced_code', 'codehilite'])
+    for q in questions:
+        # Render question text as HTML
+        q['question_html'] = md.convert(q['question_text'])
+        md.reset()  # Reset for next question
+
+        # Also render suggested answer if it contains markdown
+        if q.get('suggested_answer'):
+            q['suggested_answer_html'] = md.convert(str(q['suggested_answer']))
+            md.reset()
 
     # Calculate stats
     stats = {
