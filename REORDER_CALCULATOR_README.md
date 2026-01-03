@@ -222,6 +222,179 @@ else:
 | GET | `/reorder-calculator/download/<session_id>` | Download page with preview |
 | GET | `/reorder-calculator/export/<session_id>` | Export final CSV |
 | GET | `/reorder-calculator/audit/<session_id>` | Manual edits log |
+| GET | `/reorder-calculator/questions` | **Questions Dashboard** (all questions) |
+| POST | `/reorder-calculator/save-answer` | Save answer from dashboard |
+| POST | `/reorder-calculator/deduplicate` | Clean up duplicate questions |
+
+---
+
+## 📋 Questions Dashboard
+
+**URL:** https://gpt-mcp.onrender.com/reports/reorder-calculator/questions
+
+The Questions Dashboard provides a centralized view of all clarification questions across all calculation sessions.
+
+### Features
+
+| Feature | Description |
+|---------|-------------|
+| **Default Filter** | Shows only **Pending** questions (unanswered) |
+| **Status Filter** | Pending Only / Answered Only / All Questions |
+| **Priority Filter** | HIGH / MEDIUM / LOW / All |
+| **Stats Cards** | Shows overall totals (not filtered counts) |
+| **Clean Duplicates** | Button to remove duplicate questions |
+
+### Filter Options
+
+| Filter Value | URL Parameter | Shows |
+|--------------|---------------|-------|
+| Pending Only | `?answered=no` | Questions awaiting client answer (default) |
+| Answered Only | `?answered=yes` | Questions already answered |
+| All Questions | `?answered=all` | Both pending and answered |
+
+**Example URLs:**
+```
+# Default - pending only
+https://gpt-mcp.onrender.com/reports/reorder-calculator/questions
+
+# Show all questions
+https://gpt-mcp.onrender.com/reports/reorder-calculator/questions?answered=all
+
+# Show only HIGH priority pending
+https://gpt-mcp.onrender.com/reports/reorder-calculator/questions?answered=no&priority=HIGH
+```
+
+### Duplicate Question Cleanup
+
+Questions can be duplicated when the same calculation is run multiple times. The deduplication system handles this:
+
+**Cleanup Logic:**
+1. Groups questions by `(product_id, field_name)`
+2. If any in group is **answered** → keeps answered, deletes pending duplicates
+3. If all are **pending** → keeps most recent, deletes older duplicates
+
+**How to Clean:**
+1. Go to Questions Dashboard
+2. Click "🧹 Clean Duplicates" button
+3. Confirm the action
+4. Page reloads with duplicates removed
+
+**Prevention:**
+- New questions are automatically skipped if an answered duplicate already exists
+- Prevents creating questions for already-resolved issues
+
+---
+
+## 🗃️ Where to Get Questions & Answers
+
+### Option 1: Web Dashboard (Recommended)
+
+**URL:** https://gpt-mcp.onrender.com/reports/reorder-calculator/questions
+
+- Visual interface with filtering
+- Answer questions directly in browser
+- Export not yet available (see Option 3)
+
+### Option 2: API Endpoints
+
+**Get All Questions (JSON):**
+```bash
+# Not yet implemented - use database query instead
+```
+
+### Option 3: Direct Database Query
+
+**Database:** Agent Garden PostgreSQL (same as `DATABASE_URL`)
+
+**Table:** `reorder_questions`
+
+```sql
+-- Get all questions with answers
+SELECT
+    q.question_id,
+    q.product_id,
+    q.product_name,
+    q.priority,
+    q.question_text,
+    q.field_name,
+    q.suggested_answer,
+    q.client_answer,
+    q.answered_at,
+    q.created_at,
+    s.manufacturer,
+    s.csv_filename
+FROM reorder_questions q
+JOIN reorder_sessions s ON q.session_id = s.session_id
+ORDER BY q.created_at DESC;
+
+-- Get only answered questions
+SELECT * FROM reorder_questions
+WHERE client_answer IS NOT NULL
+ORDER BY answered_at DESC;
+
+-- Get pending questions by priority
+SELECT * FROM reorder_questions
+WHERE client_answer IS NULL
+ORDER BY
+    CASE priority WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END,
+    created_at DESC;
+
+-- Export answers for learning/documentation
+SELECT
+    product_id,
+    product_name,
+    field_name,
+    question_text,
+    suggested_answer,
+    client_answer,
+    answered_at
+FROM reorder_questions
+WHERE client_answer IS NOT NULL
+ORDER BY field_name, answered_at;
+```
+
+### Database Schema Reference
+
+**Table: `reorder_questions`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `question_id` | SERIAL | Primary key |
+| `session_id` | VARCHAR(36) | Links to reorder_sessions |
+| `product_id` | INTEGER | Product ID (0 for system-wide questions) |
+| `product_name` | VARCHAR(255) | Product name or "Bullseye Glass" for system |
+| `priority` | VARCHAR(10) | 'HIGH', 'MEDIUM', or 'LOW' |
+| `question_text` | TEXT | The question (supports Markdown) |
+| `field_name` | VARCHAR(100) | Unique identifier for question type |
+| `suggested_answer` | TEXT | Pre-filled suggestion (supports Markdown) |
+| `client_answer` | TEXT | NULL if pending, populated when answered |
+| `answered_at` | TIMESTAMP | NULL if pending, set when answered |
+| `created_at` | TIMESTAMP | When question was generated |
+
+**Table: `reorder_sessions`**
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `session_id` | VARCHAR(36) | UUID primary key |
+| `manufacturer` | VARCHAR(100) | 'Oceanside Glass', 'Bullseye Glass', etc. |
+| `csv_filename` | VARCHAR(255) | Original uploaded filename |
+| `status` | VARCHAR(50) | 'processing', 'questions', 'complete' |
+| `created_at` | TIMESTAMP | When session started |
+
+### Field Names Reference
+
+Questions are identified by `field_name` for deduplication:
+
+| field_name | Priority | Question Type |
+|------------|----------|---------------|
+| `system_calculator_algorithm` | HIGH | Full algorithm specification |
+| `system_output_format` | HIGH | Output format requirements |
+| `system_validation_examples` | HIGH | Validation test cases |
+| `system_decision_tree_formulas` | MEDIUM | Formula specifications |
+| `system_architecture` | MEDIUM | System boundaries |
+| `system_seasonal_logic` | MEDIUM | Seasonal product handling |
+| `should_stock_new_product` | HIGH | Product with no sales history |
+| `reorder_quantity_override` | MEDIUM | High reorder amount confirmation |
 
 ---
 
@@ -274,6 +447,6 @@ else:
 
 ---
 
-**Last Updated:** 2026-01-01
+**Last Updated:** 2026-01-03
 **Implementation Time:** ~5 hours
 **Status:** ✅ Ready for Production Testing
