@@ -509,6 +509,76 @@ def list_claude_tasks():
 
 
 # =============================================================================
+# AGENT GARDEN REPORTS API
+# =============================================================================
+
+@app.route('/AgentGarden/api/reports/list', methods=['GET'])
+def list_reports():
+    """
+    List all markdown reports from OneDrive Reports folder
+    Returns: List of report metadata (title, path, size, created_at, agent_type)
+    """
+    try:
+        from pathlib import Path
+        from flask import request
+
+        limit = request.args.get('limit', 50, type=int)
+
+        # Get OneDrive Reports folder path
+        # Using the working directory path as base
+        reports_base = Path.home() / 'Library' / 'CloudStorage' / 'OneDrive-Personal' / 'Claude Tools' / 'Reports'
+
+        if not reports_base.exists():
+            return jsonify({
+                'success': True,
+                'reports': [],
+                'message': 'Reports folder not found'
+            })
+
+        # Scan for markdown files
+        reports = []
+        for md_file in reports_base.rglob('*.md'):
+            if md_file.is_file():
+                # Determine agent type from parent folder
+                parent_folder = md_file.parent.name
+                agent_type = parent_folder if parent_folder != 'Reports' else 'general_report'
+
+                # Extract title from filename (remove timestamp and extension)
+                title = md_file.stem
+
+                # Get file stats
+                stats = md_file.stat()
+
+                # Build relative path from Reports folder
+                rel_path = str(md_file.relative_to(reports_base))
+
+                reports.append({
+                    'path': rel_path,
+                    'title': title,
+                    'agent_type': agent_type,
+                    'size': stats.st_size,
+                    'created_at': datetime.fromtimestamp(stats.st_mtime).isoformat(),
+                    'summary': f'{agent_type} report'
+                })
+
+        # Sort by created_at descending (newest first)
+        reports.sort(key=lambda x: x['created_at'], reverse=True)
+
+        # Apply limit
+        reports = reports[:limit]
+
+        return jsonify({
+            'success': True,
+            'reports': reports,
+            'count': len(reports)
+        })
+
+    except Exception as e:
+        logger.error(f"Error listing reports: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
 # ROOT ENDPOINT (Unified Health Check)
 # =============================================================================
 

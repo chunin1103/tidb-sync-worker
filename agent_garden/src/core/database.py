@@ -115,6 +115,41 @@ class SystemSettings(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
+class ClaudeTask(Base):
+    """Stores tasks for Claude to execute (created by Gemini)"""
+    __tablename__ = "claude_tasks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_type = Column(String(50), nullable=False)  # 'report', 'query', 'calculation', etc.
+    task_json = Column(Text, nullable=False)  # Full task details as JSON string
+    schedule_cron = Column(String(100))  # Cron expression for scheduled tasks
+    schedule_enabled = Column(Integer, default=1)  # 1=enabled, 0=disabled
+    status = Column(String(20), default='pending')  # 'pending', 'ready', 'in_progress', 'completed', 'failed'
+    result_path = Column(String(500))  # Path to result file in OneDrive
+    result_summary = Column(Text)  # Brief summary of the result
+    error_log = Column(Text)  # Error message/traceback if failed
+    created_by = Column(String(50), default='gemini')  # Who created the task
+    created_at = Column(DateTime, default=datetime.utcnow)
+    started_at = Column(DateTime)  # When Claude started executing
+    completed_at = Column(DateTime)  # When task finished (one-time tasks only)
+    execution_count = Column(Integer, default=0)  # Number of times executed
+    last_execution_at = Column(DateTime)  # Last execution time (recurring tasks)
+
+
+class TaskExecutionHistory(Base):
+    """Stores execution history for Claude tasks"""
+    __tablename__ = "task_execution_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(Integer, index=True, nullable=False)  # FK to claude_tasks.id
+    started_at = Column(DateTime, nullable=False)
+    completed_at = Column(DateTime, nullable=False)
+    status = Column(String(20), nullable=False)  # 'completed' or 'failed'
+    result_path = Column(String(500))  # Path to result file
+    error_log = Column(Text)  # Error message if failed
+    execution_time_seconds = Column(Integer)  # How long it took
+
+
 # ============================================================================
 # DATABASE OPERATIONS
 # ============================================================================
