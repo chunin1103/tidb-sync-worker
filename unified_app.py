@@ -479,6 +479,45 @@ def get_claude_task_details(task_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/AgentGarden/migrate', methods=['POST'])
+def run_migration():
+    """
+    Run database migrations to add missing columns
+    This is needed when new columns are added to SQLAlchemy models
+    """
+    try:
+        from agent_garden.src.core.database import get_db, engine
+        from sqlalchemy import text
+
+        migrations = []
+
+        # Check and add tool_usage column if missing
+        with engine.connect() as conn:
+            # Check if column exists
+            result = conn.execute(text("""
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'claude_tasks' AND column_name = 'tool_usage'
+            """))
+            if result.fetchone() is None:
+                # Add the column
+                conn.execute(text("ALTER TABLE claude_tasks ADD COLUMN tool_usage TEXT"))
+                conn.commit()
+                migrations.append("Added 'tool_usage' column to claude_tasks table")
+                logger.info("✅ Migration: Added tool_usage column to claude_tasks")
+            else:
+                migrations.append("Column 'tool_usage' already exists")
+
+        return jsonify({
+            'success': True,
+            'message': 'Migration completed',
+            'migrations': migrations
+        })
+
+    except Exception as e:
+        logger.error(f"Migration error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/AgentGarden/tasks/list', methods=['GET'])
 def list_claude_tasks():
     """
