@@ -24,8 +24,7 @@ class BullseyeCalculator(BaseCalculator):
     LEAN_THRESHOLD = 0.20  # Flag as lean inventory
 
     def __init__(self):
-        super().__init__()
-        self.manufacturer = "Bullseye Glass"
+        super().__init__("Bullseye Glass")
 
     def calculate(self, product: Dict) -> Dict:
         """
