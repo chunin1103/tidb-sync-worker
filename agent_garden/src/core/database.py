@@ -124,6 +124,7 @@ class ClaudeTask(Base):
     task_json = Column(Text, nullable=False)  # Full task details as JSON string
     schedule_cron = Column(String(100))  # Cron expression for scheduled tasks
     schedule_enabled = Column(Integer, default=1)  # 1=enabled, 0=disabled
+    output_format = Column(String(10), default='md')  # 'md', 'csv', 'xlsx', 'json', 'multi'
     status = Column(String(20), default='pending')  # 'pending', 'ready', 'in_progress', 'completed', 'failed'
     result_path = Column(String(500))  # Path to result file in OneDrive
     result_summary = Column(Text)  # Brief summary of the result

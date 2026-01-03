@@ -9,7 +9,7 @@ from typing import Optional, List, Dict
 from sqlalchemy.orm import Session
 
 
-def create_claude_task(db: Session, task_type: str, task_json: dict, schedule_cron: str = None, created_by: str = 'gemini') -> Optional[int]:
+def create_claude_task(db: Session, task_type: str, task_json: dict, schedule_cron: str = None, created_by: str = 'gemini', output_format: str = 'md') -> Optional[int]:
     """
     Create a new Claude task
 
@@ -19,6 +19,7 @@ def create_claude_task(db: Session, task_type: str, task_json: dict, schedule_cr
         task_json: Full task details as dictionary
         schedule_cron: Optional cron schedule (e.g., "0 7 * * *")
         created_by: Who created the task
+        output_format: Output format ('md', 'csv', 'xlsx', 'json', 'multi')
 
     Returns:
         Task ID if successful, None otherwise
@@ -33,6 +34,7 @@ def create_claude_task(db: Session, task_type: str, task_json: dict, schedule_cr
             task_type=task_type,
             task_json=json.dumps(task_json),
             schedule_cron=schedule_cron,
+            output_format=output_format,
             status=status,
             created_by=created_by
         )
@@ -68,6 +70,7 @@ def get_ready_tasks(db: Session) -> List[Dict]:
             'id': task.id,
             'task_type': task.task_type,
             'task_json': json.loads(task.task_json),
+            'output_format': task.output_format or 'md',
             'created_at': task.created_at.isoformat() if task.created_at else None,
             'created_by': task.created_by
         } for task in tasks]
@@ -255,6 +258,7 @@ def get_claude_task(db: Session, task_id: int) -> Optional[Dict]:
             'id': task.id,
             'task_type': task.task_type,
             'task_json': json.loads(task.task_json),
+            'output_format': task.output_format or 'md',
             'schedule_cron': task.schedule_cron,
             'schedule_enabled': bool(task.schedule_enabled),
             'status': task.status,
@@ -304,6 +308,7 @@ def get_all_claude_tasks(db: Session, status: str = None, task_type: str = None,
             'id': task.id,
             'task_type': task.task_type,
             'task_json': json.loads(task.task_json),
+            'output_format': task.output_format or 'md',
             'schedule_cron': task.schedule_cron,
             'status': task.status,
             'result_summary': task.result_summary,

@@ -27,3 +27,4 @@ pymdown-extensions>=10.0
 
 # Data Processing (Reports Viewer)
 pandas>=2.0.0
+openpyxl>=3.1.0

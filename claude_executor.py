@@ -105,8 +105,9 @@ class ClaudeExecutor:
         task_id = task['id']
         task_type = task['task_type']
         task_json = task['task_json']
+        output_format = task.get('output_format', 'md')
 
-        logger.info(f"🚀 Executing task {task_id} ({task_type})")
+        logger.info(f"🚀 Executing task {task_id} ({task_type}) - Format: {output_format}")
 
         # Mark as started
         if not self.mark_task_started(task_id):
@@ -115,13 +116,13 @@ class ClaudeExecutor:
         try:
             # Route to appropriate handler
             if task_type == 'report_generation':
-                result = self.handle_report_generation(task_json)
+                result = self.handle_report_generation(task_json, output_format)
             elif task_type == 'query_execution':
-                result = self.handle_query_execution(task_json)
+                result = self.handle_query_execution(task_json, output_format)
             elif task_type == 'calculation':
-                result = self.handle_calculation(task_json)
+                result = self.handle_calculation(task_json, output_format)
             elif task_type == 'agent_report':
-                result = self.handle_agent_report(task_json)
+                result = self.handle_agent_report(task_json, output_format)
             else:
                 raise ValueError(f"Unknown task type: {task_type}")
 
@@ -303,7 +304,109 @@ class ClaudeExecutor:
             logger.warning(f"⚠️  No database context fetched")
             return "No database context available"
 
-    def handle_agent_report(self, task_json: Dict) -> Dict:
+    def _get_format_instructions(self, output_format: str, result_file: Path) -> str:
+        """Get format-specific instructions for Claude Code CLI"""
+
+        if output_format == 'csv':
+            return """Generate a CSV file with:
+1. Header row with clear column names
+2. Data rows with comma-separated values
+3. Properly escaped fields (wrap in quotes if contains commas)
+4. No markdown formatting - pure CSV data only
+
+Use Python's csv module or write directly:
+```python
+import csv
+with open('{path}', 'w', newline='') as f:
+    writer = csv.writer(f)
+    writer.writerow(['Column1', 'Column2', 'Column3'])
+    writer.writerow(['value1', 'value2', 'value3'])
+```""".format(path=result_file)
+
+        elif output_format == 'xlsx':
+            return """Generate an Excel (XLSX) file with:
+1. Sheet with clear headers in Row 1 (bold if possible)
+2. Data rows starting from Row 2
+3. Formatted cells (numbers as numbers, dates as dates)
+4. Optional: Multiple sheets for different data categories
+5. Optional: Summary sheet with key insights
+
+Use openpyxl library:
+```python
+from openpyxl import Workbook
+from openpyxl.styles import Font
+
+wb = Workbook()
+ws = wb.active
+ws.title = "Report Data"
+
+# Headers
+ws.append(['Column1', 'Column2', 'Column3'])
+ws['A1'].font = Font(bold=True)
+
+# Data
+ws.append(['value1', 'value2', 'value3'])
+
+wb.save('{path}')
+```
+
+IMPORTANT: Install openpyxl if needed (pip install openpyxl)""".format(path=result_file)
+
+        elif output_format == 'json':
+            return """Generate a JSON file with:
+1. Well-structured JSON object or array
+2. Clear property names
+3. Proper data types (strings, numbers, booleans, arrays, objects)
+4. Pretty-printed with indentation for readability
+
+Use Python's json module:
+```python
+import json
+data = {{
+    "report_title": "...",
+    "generated_at": "...",
+    "data": [...]
+}}
+with open('{path}', 'w') as f:
+    json.dump(data, f, indent=2)
+```""".format(path=result_file)
+
+        elif output_format == 'multi':
+            md_file = str(result_file).replace(result_file.suffix, '.md')
+            csv_file = str(result_file).replace(result_file.suffix, '.csv')
+            xlsx_file = str(result_file).replace(result_file.suffix, '.xlsx')
+
+            return f"""Generate THREE files in different formats:
+
+1. MARKDOWN ({md_file}):
+   - Executive summary with insights
+   - Clear section headings (##)
+   - Formatted tables if needed
+
+2. CSV ({csv_file}):
+   - Raw data in tabular format
+   - Header row + data rows
+
+3. EXCEL ({xlsx_file}):
+   - Formatted spreadsheet with headers
+   - Multiple sheets if appropriate
+   - Use openpyxl library
+
+Save all three files - user wants maximum flexibility!"""
+
+        else:  # Default: markdown
+            return """Generate a Markdown report with:
+1. Clear section headings (## for main sections, ### for subsections)
+2. Actionable insights and recommendations based on the REAL DATA above
+3. Specific data points (reference actual order IDs, quantities, dates from the data)
+4. Tables for tabular data (use markdown table syntax)
+5. Bullet points for lists
+6. **Bold** for emphasis on key findings
+7. Concrete next steps section at the end
+
+Use the Write tool to save the markdown content."""
+
+    def handle_agent_report(self, task_json: Dict, output_format: str = 'md') -> Dict:
         """Handle autonomous agent reports (HYBRID: Direct MCP + Claude Code CLI)"""
         agent_type = task_json.get('agent_type', 'Unknown')
         report_title = task_json.get('report_title', 'Agent Report')
@@ -312,14 +415,18 @@ class ClaudeExecutor:
 
         logger.info(f"📊 Generating agent report: {report_title} ({agent_type})")
         logger.info(f"🔧 HYBRID MODE: Direct MCP data fetch + Claude Code CLI analysis")
+        logger.info(f"📄 Output format: {output_format.upper()}")
 
         # Get output configuration
         output_config = task_json.get('output', {})
         output_path = self.onedrive_base / output_config.get('path', 'Reports/Agents')
         output_path.mkdir(parents=True, exist_ok=True)
 
-        # Generate filename
-        filename_pattern = output_config.get('filename_pattern', 'report_{timestamp}.md')
+        # Generate filename with appropriate extension based on format
+        file_extension = output_format if output_format in ['md', 'csv', 'json'] else 'xlsx'
+        filename_pattern = output_config.get('filename_pattern', f'report_{{timestamp}}.{file_extension}')
+        # Replace .md with correct extension if pattern has .md
+        filename_pattern = filename_pattern.replace('.md', f'.{file_extension}')
         filename = filename_pattern.format(
             date=datetime.now().strftime('%Y-%m-%d'),
             timestamp=datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -332,6 +439,9 @@ class ClaudeExecutor:
 
         # Step 2: Build enhanced prompt with real data for Claude Code CLI
         import subprocess
+
+        # Build format-specific instructions
+        format_instructions = self._get_format_instructions(output_format, result_file)
 
         claude_prompt = f"""You are the {agent_type} agent.
 
@@ -348,14 +458,13 @@ DATABASE CONTEXT (fetched from live TiDB):
 INSTRUCTIONS:
 {prompt}
 
-OUTPUT FORMAT:
-Generate a markdown report with:
-1. Clear section headings (## )
-2. Actionable insights and recommendations based on the REAL DATA above
-3. Specific data points (reference actual order IDs, quantities, dates from the data)
-4. Concrete next steps
+OUTPUT FORMAT REQUIREMENTS:
+{format_instructions}
 
-Analyze the database context provided and generate the report now:"""
+CRITICAL: You must save the output to this EXACT path:
+{result_file}
+
+Analyze the database context provided and generate the file now:"""
 
         try:
             # Call Claude Code CLI in non-interactive mode

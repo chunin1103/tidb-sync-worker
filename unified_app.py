@@ -286,7 +286,8 @@ def create_claude_task_endpoint():
             task_type=data['task_type'],
             task_json=data['task_json'],
             schedule_cron=data.get('schedule_cron'),
-            created_by=data.get('created_by', 'gemini')
+            created_by=data.get('created_by', 'gemini'),
+            output_format=data.get('output_format', 'md')
         )
 
         if not task_id:
