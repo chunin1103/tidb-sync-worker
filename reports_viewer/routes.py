@@ -314,19 +314,24 @@ def list_sessions():
 def all_questions_dashboard():
     """View all questions across all sessions with filters"""
     # Get filter parameters
-    answered_filter = request.args.get('answered')  # 'yes', 'no', or None (all)
+    # Default to 'no' (pending only) if not specified
+    answered_filter = request.args.get('answered', 'no')  # 'yes', 'no', or 'all'
     priority_filter = request.args.get('priority')  # 'HIGH', 'MEDIUM', 'LOW', or None
     limit = int(request.args.get('limit', 100))
 
     # Convert answered filter to boolean
-    answered = None
+    answered = None  # None means all
     if answered_filter == 'yes':
         answered = True
     elif answered_filter == 'no':
         answered = False
+    # 'all' leaves answered as None
 
-    # Get questions from database
+    # Get filtered questions for display
     questions = get_all_questions(limit=limit, answered=answered, priority=priority_filter)
+
+    # Get ALL questions for overall stats (so client sees true totals)
+    all_questions = get_all_questions(limit=1000, answered=None, priority=None)
 
     # Render markdown for each question (supports tables, bold, code, etc.)
     md = markdown.Markdown(extensions=['tables', 'fenced_code', 'codehilite'])
@@ -340,14 +345,15 @@ def all_questions_dashboard():
             q['suggested_answer_html'] = md.convert(str(q['suggested_answer']))
             md.reset()
 
-    # Calculate stats
+    # Calculate overall stats (from ALL questions, not filtered)
     stats = {
-        'total': len(questions),
-        'answered': sum(1 for q in questions if q['status'] == 'Answered'),
-        'pending': sum(1 for q in questions if q['status'] == 'Pending'),
-        'high_priority': sum(1 for q in questions if q['priority'] == 'HIGH'),
-        'medium_priority': sum(1 for q in questions if q['priority'] == 'MEDIUM'),
-        'low_priority': sum(1 for q in questions if q['priority'] == 'LOW')
+        'total': len(all_questions),
+        'answered': sum(1 for q in all_questions if q['status'] == 'Answered'),
+        'pending': sum(1 for q in all_questions if q['status'] == 'Pending'),
+        'high_priority': sum(1 for q in all_questions if q['priority'] == 'HIGH'),
+        'medium_priority': sum(1 for q in all_questions if q['priority'] == 'MEDIUM'),
+        'low_priority': sum(1 for q in all_questions if q['priority'] == 'LOW'),
+        'showing': len(questions)  # How many are currently displayed
     }
 
     return render_template('all_questions.html',

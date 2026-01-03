@@ -458,29 +458,29 @@
         </div>
 
         <div class="stats">
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.total }}</div>
-                <div class="stat-label">Total Questions</div>
+            <div class="stat-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+                <div class="stat-value" style="color: white;">{{ stats.showing }}</div>
+                <div class="stat-label" style="color: rgba(255,255,255,0.9);">Showing Now</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{{ stats.pending }}</div>
+                <div class="stat-value" style="color: #e65100;">{{ stats.pending }}</div>
                 <div class="stat-label">Pending</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{{ stats.answered }}</div>
+                <div class="stat-value" style="color: #2e7d32;">{{ stats.answered }}</div>
                 <div class="stat-label">Answered</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{{ stats.high_priority }}</div>
+                <div class="stat-value">{{ stats.total }}</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value" style="color: #c62828;">{{ stats.high_priority }}</div>
                 <div class="stat-label">High Priority</div>
             </div>
             <div class="stat-card">
-                <div class="stat-value">{{ stats.medium_priority }}</div>
-                <div class="stat-label">Medium Priority</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-value">{{ stats.low_priority }}</div>
-                <div class="stat-label">Low Priority</div>
+                <div class="stat-value" style="color: #e65100;">{{ stats.medium_priority }}</div>
+                <div class="stat-label">Medium</div>
             </div>
         </div>
 
@@ -489,9 +489,9 @@
                 <div class="filter-group">
                     <label>Status:</label>
                     <select name="answered">
-                        <option value="">All Questions</option>
-                        <option value="no" {% if current_answered == 'no' %}selected{% endif %}>Pending Only</option>
+                        <option value="no" {% if current_answered == 'no' or current_answered is none %}selected{% endif %}>Pending Only</option>
                         <option value="yes" {% if current_answered == 'yes' %}selected{% endif %}>Answered Only</option>
+                        <option value="all" {% if current_answered == 'all' %}selected{% endif %}>All Questions</option>
                     </select>
 
                     <label>Priority:</label>
