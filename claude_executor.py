@@ -48,7 +48,7 @@ class ClaudeExecutor:
     def poll_ready_tasks(self) -> list:
         """Poll MCP server for tasks ready to execute"""
         try:
-            response = requests.get(f"{self.mcp_server}/tasks/ready", timeout=10)
+            response = requests.get(f"{self.mcp_server}/AgentGarden/tasks/ready", timeout=10)
             response.raise_for_status()
             data = response.json()
             return data.get('tasks', [])
@@ -59,7 +59,7 @@ class ClaudeExecutor:
     def mark_task_started(self, task_id: int) -> bool:
         """Mark task as in_progress"""
         try:
-            response = requests.post(f"{self.mcp_server}/tasks/{task_id}/start", timeout=10)
+            response = requests.post(f"{self.mcp_server}/AgentGarden/tasks/{task_id}/start", timeout=10)
             response.raise_for_status()
             logger.info(f"📋 Task {task_id} started")
             return True
@@ -71,7 +71,7 @@ class ClaudeExecutor:
         """Mark task as completed"""
         try:
             response = requests.post(
-                f"{self.mcp_server}/tasks/{task_id}/complete",
+                f"{self.mcp_server}/AgentGarden/tasks/{task_id}/complete",
                 json={
                     'result_path': result_path,
                     'result_summary': summary
@@ -89,7 +89,7 @@ class ClaudeExecutor:
         """Mark task as failed"""
         try:
             response = requests.post(
-                f"{self.mcp_server}/tasks/{task_id}/fail",
+                f"{self.mcp_server}/AgentGarden/tasks/{task_id}/fail",
                 json={'error_log': error_log},
                 timeout=10
             )
@@ -307,6 +307,8 @@ class ClaudeExecutor:
     def _get_format_instructions(self, output_format: str, result_file: Path) -> str:
         """Get format-specific instructions for Claude Code CLI"""
 
+        filename = result_file.name  # Get just the filename, not full path
+
         if output_format == 'csv':
             return """Generate a CSV file with:
 1. Header row with clear column names
@@ -317,11 +319,11 @@ class ClaudeExecutor:
 Use Python's csv module or write directly:
 ```python
 import csv
-with open('{path}', 'w', newline='') as f:
+with open('{filename}', 'w', newline='') as f:
     writer = csv.writer(f)
     writer.writerow(['Column1', 'Column2', 'Column3'])
     writer.writerow(['value1', 'value2', 'value3'])
-```""".format(path=result_file)
+```""".format(filename=filename)
 
         elif output_format == 'xlsx':
             return """Generate an Excel (XLSX) file with:
@@ -331,7 +333,13 @@ with open('{path}', 'w', newline='') as f:
 4. Optional: Multiple sheets for different data categories
 5. Optional: Summary sheet with key insights
 
-Use openpyxl library:
+METHOD: Create a Python script and execute it immediately
+
+Step 1: Use Write tool to create a temp Python script (e.g. create_excel.py)
+Step 2: Use Bash tool to run: python create_excel.py
+Step 3: Use Bash tool to verify file was created: ls -lh {filename}
+
+Example Python script content:
 ```python
 from openpyxl import Workbook
 from openpyxl.styles import Font
@@ -347,10 +355,11 @@ ws['A1'].font = Font(bold=True)
 # Data
 ws.append(['value1', 'value2', 'value3'])
 
-wb.save('{path}')
+wb.save('{filename}')
+print("Excel file created: {filename}")
 ```
 
-IMPORTANT: Install openpyxl if needed (pip install openpyxl)""".format(path=result_file)
+CRITICAL: You MUST run the Python script after creating it, don't just write the script!""".format(filename=filename)
 
         elif output_format == 'json':
             return """Generate a JSON file with:
@@ -367,14 +376,15 @@ data = {{
     "generated_at": "...",
     "data": [...]
 }}
-with open('{path}', 'w') as f:
+with open('{filename}', 'w') as f:
     json.dump(data, f, indent=2)
-```""".format(path=result_file)
+```""".format(filename=filename)
 
         elif output_format == 'multi':
-            md_file = str(result_file).replace(result_file.suffix, '.md')
-            csv_file = str(result_file).replace(result_file.suffix, '.csv')
-            xlsx_file = str(result_file).replace(result_file.suffix, '.xlsx')
+            base_name = result_file.stem  # Get filename without extension
+            md_file = f"{base_name}.md"
+            csv_file = f"{base_name}.csv"
+            xlsx_file = f"{base_name}.xlsx"
 
             return f"""Generate THREE files in different formats:
 
@@ -461,16 +471,20 @@ INSTRUCTIONS:
 OUTPUT FORMAT REQUIREMENTS:
 {format_instructions}
 
-CRITICAL: You must save the output to this EXACT path:
-{result_file}
+CRITICAL: You must save the output to this EXACT filename:
+{filename}
+
+(You are running from the correct directory, so just use the filename, not full path)
 
 Analyze the database context provided and generate the file now:"""
 
         try:
-            # Call Claude Code CLI in non-interactive mode
+            # Call Claude Code CLI with auto-approval for automated execution
+            # Set working directory to output folder so Claude can write files directly
+            # NOTE: --print flag disabled to allow tool usage (Write, Bash, etc.)
             result = subprocess.run(
-                ['claude', '--print', claude_prompt],
-                cwd=str(self.project_root),
+                ['claude', '--dangerously-skip-permissions', claude_prompt],
+                cwd=str(output_path),  # Run from output directory
                 capture_output=True,
                 text=True,
                 timeout=300  # 5 minute timeout
@@ -537,9 +551,28 @@ Claude Code CLI execution timed out after 5 minutes.
 {str(e)}
 """
 
-        # Write report to file
-        with open(result_file, 'w') as f:
-            f.write(full_report)
+        # Handle output based on format
+        if output_format in ['csv', 'xlsx', 'json']:
+            # For data files, Claude should have created the file - verify it exists
+            if result_file.exists():
+                logger.info(f"✅ Data file created by Claude: {result_file.name}")
+
+                # Save execution log separately (don't overwrite the data file!)
+                log_file = result_file.with_suffix(result_file.suffix + '.log')
+                with open(log_file, 'w') as f:
+                    f.write(full_report)
+                logger.info(f"📝 Execution log saved: {log_file.name}")
+            else:
+                error_msg = f"Claude did not create the expected file: {result_file.name}"
+                logger.error(f"❌ {error_msg}")
+                # Create error report
+                with open(result_file.with_suffix('.error.md'), 'w') as f:
+                    f.write(f"# ERROR: File Not Created\n\n{error_msg}\n\n{full_report}")
+                raise FileNotFoundError(error_msg)
+        else:
+            # For markdown/text reports, write the full report content
+            with open(result_file, 'w') as f:
+                f.write(full_report)
 
         relative_path = str(result_file.relative_to(self.onedrive_base))
 

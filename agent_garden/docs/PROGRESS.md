@@ -360,3 +360,16 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-03: Output Format Support (CSV/XLSX/JSON) - Claude as AI Employee
+**Status**: Completed
+**Files Modified**: migrations/002_add_output_format.sql (NEW), database.py:127, database_claude_tasks.py:12,37,73,261,311, unified_app.py:290, claude_executor.py:51,62,74,92,108,307-408,474-484, requirements.txt:30, TEST_OUTPUT_FORMATS.md (NEW)
+**What Changed**: Added output_format column and executor logic to enable Claude Code CLI to generate CSV/XLSX/JSON files autonomously
+**Problem**: Claude could only generate .md files; needed variety of business file formats (vendor orders, inventory reports, sales dashboards) for "AI Employee" concept
+**Approach**: Changed working directory to OneDrive output folder, used relative filenames, removed `--print` flag, added `--dangerously-skip-permissions` (vs complex stdout capture)
+**Key User Insight**: "bro why are you trying to generate the file outside directory" - simplified solution to run Claude from output folder itself
+**Fixes Applied**: Git OneDrive conflict cleanup, executor endpoint URLs (/tasks/→/AgentGarden/tasks/), working directory (cwd=output_path), removed `--print` blocking file writes, XLSX prompts instructing Claude to execute Python scripts
+**Testing**: Task 35 (CSV) ✅ 69-byte real CSV with proper data; Task 37 (XLSX) ✅ 5.7KB Microsoft Excel 2007+ file with multiple sheets, bold headers, formatted data
+**Impact**: Claude Code CLI can now act as autonomous "AI Employee" generating business files in multiple formats without API costs
+
+---
+
