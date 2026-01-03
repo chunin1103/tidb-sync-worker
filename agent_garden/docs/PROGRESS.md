@@ -373,3 +373,31 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-03: Critical Bug Fix - Executor Overwriting CSV/XLSX Files with Markdown
+**Status**: Completed
+**Files Modified**: claude_executor.py:554-584 (handle_agent_report), PROGRESS.md
+**Problem**: User couldn't see CSV/XLSX files in OneDrive - files had correct extensions but contained markdown text instead of real data
+**Root Causes**:
+1. **Stale Flask server** (running since Jan 2) not saving output_format to database - all tasks defaulted to 'md'
+2. **Executor overwrite bug** (line 554-556) - wrote markdown report to result_file AFTER Claude created real CSV/XLSX, destroying the data
+**Fix Approach**: Conditional file handling based on format (vs always overwriting)
+- For CSV/XLSX/JSON: Verify Claude created the file, save execution log to separate .log file, leave data file untouched
+- For Markdown: Continue writing full report content as before
+- Restarted Flask server to load latest code with output_format support
+**Testing**: Task 41 (CSV) ✅ 21-byte real CSV (Color,Red,Blue,Green); Task 42 (XLSX) ✅ 4.8KB Microsoft Excel 2007+ file (Products/Price table) - both in Reports/Agents/ folder
+**Impact**: Fixed critical data loss bug - CSV/XLSX files now contain real data instead of markdown, execution logs preserved separately
+
+---
+
+## 2026-01-03: Playwright MCP Configuration Fix - Cross-Platform Compatibility
+**Status**: Completed
+**Files Modified**: /Users/vusmac/Library/CloudStorage/OneDrive-Personal/Claude Tools/.mcp.json:14-20
+**Problem**: Playwright MCP server failing to connect with "Failed to reconnect to playwright" error on macOS
+**Root Cause**: Configuration used Windows-specific `cmd /c` wrapper that doesn't exist on macOS/Linux
+**Approach**: Use cross-platform npx command directly (vs OS-specific configs)
+**Fix**: Removed `"command": "cmd", "args": ["/c", "npx"...]` → Changed to `"command": "npx", "args": ["-y", "@playwright/mcp@latest"]`
+**Impact**: Playwright MCP now works on both macOS and Windows - OneDrive sync ensures coworker gets working config
+**Testing**: Node.js v22.19.0 and npx 11.6.4 verified installed, npx command works cross-platform
+
+---
+

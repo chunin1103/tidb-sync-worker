@@ -120,13 +120,23 @@ class ClaudeExecutor:
 
         try:
             # Route to appropriate handler
+            # Dashboard agent types all use handle_agent_report
+            agent_types = [
+                'agent_report',
+                'inventory_intelligence',
+                'sales_analysis',
+                'customer_insights',
+                'product_performance',
+                'general_report'
+            ]
+
             if task_type == 'report_generation':
                 result = self.handle_report_generation(task_json, output_format)
             elif task_type == 'query_execution':
                 result = self.handle_query_execution(task_json, output_format)
             elif task_type == 'calculation':
                 result = self.handle_calculation(task_json, output_format)
-            elif task_type == 'agent_report':
+            elif task_type in agent_types:
                 result = self.handle_agent_report(task_json, output_format)
             else:
                 raise ValueError(f"Unknown task type: {task_type}")
