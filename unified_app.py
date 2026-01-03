@@ -583,6 +583,52 @@ def save_report():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/AgentGarden/api/reports/view/<path:report_path>', methods=['GET'])
+def view_report(report_path):
+    """
+    View a Claude-generated report from database
+    Path format: {agent_type}/{report_title}.md
+    Returns: Markdown content as plain text
+    """
+    try:
+        from agent_garden.src.core.database import get_db, ClaudeReport
+
+        # Parse path to extract agent_type and report_title
+        # Example: "sales_analysis/report_20260102_081250.md"
+        parts = report_path.rsplit('/', 1)
+        if len(parts) != 2:
+            return "Invalid report path", 400
+
+        agent_type = parts[0]
+        filename = parts[1]
+        report_title = filename.replace('.md', '')
+
+        # Query database for report
+        db = get_db()
+        if not db:
+            return "Database unavailable", 500
+
+        try:
+            report = db.query(ClaudeReport).filter(
+                ClaudeReport.agent_type == agent_type,
+                ClaudeReport.report_title == report_title
+            ).first()
+
+            if not report:
+                return f"Report not found: {agent_type}/{report_title}", 404
+
+            # Return markdown content as plain text
+            from flask import Response
+            return Response(report.report_content, mimetype='text/markdown')
+
+        finally:
+            db.close()
+
+    except Exception as e:
+        logger.error(f"Error viewing report: {e}")
+        return f"Error loading report: {str(e)}", 500
+
+
 # =============================================================================
 # FAVICON ROUTE (Prevent 404 errors)
 # =============================================================================
