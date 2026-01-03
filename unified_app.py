@@ -515,57 +515,18 @@ def list_claude_tasks():
 @app.route('/AgentGarden/api/reports/list', methods=['GET'])
 def list_reports():
     """
-    List all markdown reports from OneDrive Reports folder
+    List all Claude-generated reports from database
     Returns: List of report metadata (title, path, size, created_at, agent_type)
     """
     try:
-        from pathlib import Path
         from flask import request
+        from agent_garden.src.core.database import get_claude_reports
 
         limit = request.args.get('limit', 50, type=int)
+        agent_type = request.args.get('agent_type', None)
 
-        # Get OneDrive Reports folder path
-        # Using the working directory path as base
-        reports_base = Path.home() / 'Library' / 'CloudStorage' / 'OneDrive-Personal' / 'Claude Tools' / 'Reports'
-
-        if not reports_base.exists():
-            return jsonify({
-                'success': True,
-                'reports': [],
-                'message': 'Reports folder not found'
-            })
-
-        # Scan for markdown files
-        reports = []
-        for md_file in reports_base.rglob('*.md'):
-            if md_file.is_file():
-                # Determine agent type from parent folder
-                parent_folder = md_file.parent.name
-                agent_type = parent_folder if parent_folder != 'Reports' else 'general_report'
-
-                # Extract title from filename (remove timestamp and extension)
-                title = md_file.stem
-
-                # Get file stats
-                stats = md_file.stat()
-
-                # Build relative path from Reports folder
-                rel_path = str(md_file.relative_to(reports_base))
-
-                reports.append({
-                    'path': rel_path,
-                    'title': title,
-                    'agent_type': agent_type,
-                    'size': stats.st_size,
-                    'created_at': datetime.fromtimestamp(stats.st_mtime).isoformat(),
-                    'summary': f'{agent_type} report'
-                })
-
-        # Sort by created_at descending (newest first)
-        reports.sort(key=lambda x: x['created_at'], reverse=True)
-
-        # Apply limit
-        reports = reports[:limit]
+        # Get reports from database
+        reports = get_claude_reports(limit=limit, agent_type=agent_type)
 
         return jsonify({
             'success': True,
@@ -575,6 +536,50 @@ def list_reports():
 
     except Exception as e:
         logger.error(f"Error listing reports: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/api/reports/save', methods=['POST'])
+def save_report():
+    """
+    Save a Claude-generated report to database (called by local executor)
+    Expects JSON: {agent_type, report_title, report_content, file_path?, task_id?}
+    """
+    try:
+        from flask import request
+        from agent_garden.src.core.database import save_claude_report
+
+        data = request.get_json()
+
+        if not data:
+            return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+
+        # Validate required fields
+        required = ['agent_type', 'report_title', 'report_content']
+        missing = [f for f in required if f not in data]
+        if missing:
+            return jsonify({'success': False, 'error': f'Missing fields: {missing}'}), 400
+
+        # Save to database
+        report_id = save_claude_report(
+            agent_type=data['agent_type'],
+            report_title=data['report_title'],
+            report_content=data['report_content'],
+            file_path=data.get('file_path'),
+            task_id=data.get('task_id')
+        )
+
+        if report_id:
+            return jsonify({
+                'success': True,
+                'report_id': report_id,
+                'message': 'Report saved successfully'
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save report'}), 500
+
+    except Exception as e:
+        logger.error(f"Error saving report: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

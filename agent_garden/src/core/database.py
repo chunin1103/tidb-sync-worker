@@ -150,6 +150,21 @@ class TaskExecutionHistory(Base):
     execution_time_seconds = Column(Integer)  # How long it took
 
 
+class ClaudeReport(Base):
+    """Stores Claude-generated reports (synced from local OneDrive)"""
+    __tablename__ = "claude_reports"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(Integer, index=True)  # FK to claude_tasks.id (nullable)
+    agent_type = Column(String(50), nullable=False, index=True)  # 'inventory_intelligence', etc.
+    report_title = Column(String(200), nullable=False)  # Filename without extension
+    report_content = Column(Text, nullable=False)  # Full markdown content
+    file_path = Column(String(500))  # Relative path in OneDrive (for reference)
+    file_size = Column(Integer)  # File size in bytes
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 # ============================================================================
 # DATABASE OPERATIONS
 # ============================================================================
@@ -582,6 +597,145 @@ def get_session_export_data(session_id: str) -> Optional[Dict]:
 
     except Exception as e:
         print(f"Error getting session export data: {e}")
+        return None
+    finally:
+        db.close()
+
+
+# ============================================================================
+# CLAUDE REPORTS OPERATIONS
+# ============================================================================
+
+def save_claude_report(agent_type: str, report_title: str, report_content: str,
+                       file_path: str = None, task_id: int = None) -> Optional[int]:
+    """
+    Save a Claude-generated report to the database
+
+    Args:
+        agent_type: Type of agent that generated the report
+        report_title: Title/filename of the report
+        report_content: Full markdown content
+        file_path: Optional relative path in OneDrive
+        task_id: Optional task ID if linked to a ClaudeTask
+
+    Returns:
+        Report ID if successful, None otherwise
+    """
+    if not USE_DATABASE:
+        return None
+
+    db = get_db()
+    if not db:
+        return None
+
+    try:
+        # Calculate file size
+        file_size = len(report_content.encode('utf-8'))
+
+        # Check if report already exists (by title and agent_type)
+        existing = db.query(ClaudeReport).filter(
+            ClaudeReport.report_title == report_title,
+            ClaudeReport.agent_type == agent_type
+        ).first()
+
+        if existing:
+            # Update existing report
+            existing.report_content = report_content
+            existing.file_path = file_path
+            existing.file_size = file_size
+            existing.task_id = task_id
+            existing.updated_at = datetime.utcnow()
+            db.commit()
+            return existing.id
+        else:
+            # Create new report
+            report = ClaudeReport(
+                agent_type=agent_type,
+                report_title=report_title,
+                report_content=report_content,
+                file_path=file_path,
+                file_size=file_size,
+                task_id=task_id
+            )
+            db.add(report)
+            db.commit()
+            return report.id
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error saving Claude report: {e}")
+        return None
+    finally:
+        db.close()
+
+
+def get_claude_reports(limit: int = 50, agent_type: str = None) -> List[Dict]:
+    """
+    Get Claude-generated reports from database
+
+    Args:
+        limit: Maximum number of reports to return
+        agent_type: Optional filter by agent type
+
+    Returns:
+        List of report dictionaries
+    """
+    if not USE_DATABASE:
+        return []
+
+    db = get_db()
+    if not db:
+        return []
+
+    try:
+        query = db.query(ClaudeReport)
+
+        if agent_type:
+            query = query.filter(ClaudeReport.agent_type == agent_type)
+
+        reports = query.order_by(ClaudeReport.created_at.desc()).limit(limit).all()
+
+        return [{
+            'id': r.id,
+            'path': r.file_path or f'{r.agent_type}/{r.report_title}.md',
+            'title': r.report_title,
+            'agent_type': r.agent_type,
+            'size': r.file_size or 0,
+            'created_at': r.created_at.isoformat() if r.created_at else None,
+            'summary': f'{r.agent_type} report',
+            'content': r.report_content
+        } for r in reports]
+
+    except Exception as e:
+        print(f"Error getting Claude reports: {e}")
+        return []
+    finally:
+        db.close()
+
+
+def get_claude_report_content(report_id: int) -> Optional[str]:
+    """
+    Get the full content of a specific Claude report
+
+    Args:
+        report_id: ID of the report
+
+    Returns:
+        Report content as markdown string, or None if not found
+    """
+    if not USE_DATABASE:
+        return None
+
+    db = get_db()
+    if not db:
+        return None
+
+    try:
+        report = db.query(ClaudeReport).filter(ClaudeReport.id == report_id).first()
+        return report.report_content if report else None
+
+    except Exception as e:
+        print(f"Error getting Claude report content: {e}")
         return None
     finally:
         db.close()
