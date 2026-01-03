@@ -797,6 +797,218 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
+        /* Format Picker */
+        .format-picker {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .format-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 70px;
+        }
+
+        .format-option:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .format-option.selected {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 157, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 157, 0.2);
+        }
+
+        .format-option .format-icon {
+            font-size: 1.5rem;
+        }
+
+        .format-option .format-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .format-option.selected .format-label {
+            color: var(--neon-green);
+        }
+
+        /* Format-specific colors */
+        .format-option[data-format="md"].selected {
+            border-color: #9ca3af;
+            background: rgba(156, 163, 175, 0.1);
+            box-shadow: 0 0 20px rgba(156, 163, 175, 0.2);
+        }
+        .format-option[data-format="md"].selected .format-label { color: #9ca3af; }
+
+        .format-option[data-format="csv"].selected {
+            border-color: #22c55e;
+            background: rgba(34, 197, 94, 0.1);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.2);
+        }
+        .format-option[data-format="csv"].selected .format-label { color: #22c55e; }
+
+        .format-option[data-format="xlsx"].selected {
+            border-color: #16a34a;
+            background: rgba(22, 163, 74, 0.1);
+            box-shadow: 0 0 20px rgba(22, 163, 74, 0.2);
+        }
+        .format-option[data-format="xlsx"].selected .format-label { color: #16a34a; }
+
+        .format-option[data-format="json"].selected {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.2);
+        }
+        .format-option[data-format="json"].selected .format-label { color: #f59e0b; }
+
+        .format-option[data-format="pdf"].selected {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.2);
+        }
+        .format-option[data-format="pdf"].selected .format-label { color: #ef4444; }
+
+        /* Priority Picker */
+        .priority-picker {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .priority-option {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+        }
+
+        .priority-option:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .priority-option.selected {
+            border-color: var(--neon-blue);
+            background: rgba(0, 184, 255, 0.1);
+        }
+
+        .priority-option[data-priority="low"].selected {
+            border-color: #6b7280;
+            background: rgba(107, 114, 128, 0.1);
+        }
+
+        .priority-option[data-priority="normal"].selected {
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
+        }
+
+        .priority-option[data-priority="high"].selected {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        /* Form Row for side-by-side elements */
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        @media (max-width: 600px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .format-picker {
+                justify-content: center;
+            }
+        }
+
+        /* Report Format Badge */
+        .report-format-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .report-format-badge.format-md {
+            background: rgba(156, 163, 175, 0.2);
+            color: #9ca3af;
+        }
+
+        .report-format-badge.format-csv {
+            background: rgba(34, 197, 94, 0.2);
+            color: #22c55e;
+        }
+
+        .report-format-badge.format-xlsx {
+            background: rgba(22, 163, 74, 0.2);
+            color: #16a34a;
+        }
+
+        .report-format-badge.format-json {
+            background: rgba(245, 158, 11, 0.2);
+            color: #f59e0b;
+        }
+
+        .report-format-badge.format-pdf {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+
+        /* Auto-refresh Badge */
+        .auto-refresh-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.2rem 0.6rem;
+            background: rgba(0, 255, 157, 0.1);
+            border: 1px solid rgba(0, 255, 157, 0.3);
+            border-radius: 20px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--neon-green);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 0.75rem;
+        }
+
+        .pulse-dot {
+            width: 6px;
+            height: 6px;
+            background: var(--neon-green);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
         /* Pagination */
         .pagination {
             display: flex;
@@ -1293,6 +1505,9 @@
                     <div class="panel-title">
                         <div class="panel-icon icon-reports">📊</div>
                         <span>Generated Reports</span>
+                        <span id="reportsAutoRefresh" class="auto-refresh-badge" title="Auto-refreshes with dashboard">
+                            <span class="pulse-dot"></span> Live
+                        </span>
                     </div>
                     <div class="panel-actions">
                         <button class="btn btn-icon" onclick="exportReports()" title="Export all reports">📦</button>
@@ -1345,6 +1560,33 @@
                             required
                         ></textarea>
                         <span class="form-hint">Example: "Analyze sales trends for the last 7 days"</span>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Output Format</label>
+                        <div class="format-picker" id="formatPicker">
+                            <div class="format-option selected" data-format="md" onclick="selectFormat('md')">
+                                <span class="format-icon">📄</span>
+                                <span class="format-label">Markdown</span>
+                            </div>
+                            <div class="format-option" data-format="csv" onclick="selectFormat('csv')">
+                                <span class="format-icon">📊</span>
+                                <span class="format-label">CSV</span>
+                            </div>
+                            <div class="format-option" data-format="xlsx" onclick="selectFormat('xlsx')">
+                                <span class="format-icon">📑</span>
+                                <span class="format-label">Excel</span>
+                            </div>
+                            <div class="format-option" data-format="json" onclick="selectFormat('json')">
+                                <span class="format-icon">🗂️</span>
+                                <span class="format-label">JSON</span>
+                            </div>
+                            <div class="format-option" data-format="pdf" onclick="selectFormat('pdf')">
+                                <span class="format-icon">📕</span>
+                                <span class="format-label">PDF</span>
+                            </div>
+                        </div>
+                        <input type="hidden" id="outputFormat" value="md">
                     </div>
 
                     <div class="form-group">
@@ -1884,6 +2126,33 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
             }
         }
 
+        // Get format from file extension
+        function getFormatFromPath(path) {
+            if (!path) return 'md';
+            const ext = path.split('.').pop().toLowerCase();
+            const formatMap = {
+                'md': 'md',
+                'csv': 'csv',
+                'xlsx': 'xlsx',
+                'xls': 'xlsx',
+                'json': 'json',
+                'pdf': 'pdf'
+            };
+            return formatMap[ext] || 'md';
+        }
+
+        // Get format display info
+        function getFormatInfo(format) {
+            const formats = {
+                'md': { icon: '📄', label: 'MD', color: '#9ca3af' },
+                'csv': { icon: '📊', label: 'CSV', color: '#22c55e' },
+                'xlsx': { icon: '📑', label: 'XLSX', color: '#16a34a' },
+                'json': { icon: '🗂️', label: 'JSON', color: '#f59e0b' },
+                'pdf': { icon: '📕', label: 'PDF', color: '#ef4444' }
+            };
+            return formats[format] || formats['md'];
+        }
+
         // Load reports from API
         async function loadReports() {
             const reportsGrid = document.getElementById('reportsGrid');
@@ -1915,16 +2184,23 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
 
                             const emoji = agentEmojis[report.agent_type] || '📄';
                             const sizeKB = (report.size / 1024).toFixed(1);
+                            const format = getFormatFromPath(report.path);
+                            const formatInfo = getFormatInfo(format);
 
                             return `
                                 <div class="report-card" onclick="viewReportPreview('${report.path}', '${report.title}')">
-                                    <div class="report-icon">${emoji}</div>
+                                    <div class="report-header" style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                                        <div class="report-icon">${emoji}</div>
+                                        <span class="report-format-badge format-${format}" title="${formatInfo.label} format">
+                                            ${formatInfo.icon} ${formatInfo.label}
+                                        </span>
+                                    </div>
                                     <div class="report-title">${report.title}</div>
                                     <div class="report-meta">
                                         <span>${formatDateTime(report.created_at)}</span>
                                         <span>${sizeKB} KB</span>
                                     </div>
-                                    <div class="report-summary">${report.summary || 'No summary available'}</div>
+                                    <div class="report-summary">${report.summary || `${report.agent_type.replace(/_/g, ' ')} report`}</div>
                                 </div>
                             `;
                         }).join('');
@@ -2007,6 +2283,18 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
             }
         }
 
+        // Format picker selection
+        function selectFormat(format) {
+            // Update hidden input
+            document.getElementById('outputFormat').value = format;
+
+            // Update visual selection
+            document.querySelectorAll('.format-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            document.querySelector(`.format-option[data-format="${format}"]`).classList.add('selected');
+        }
+
         // Create new task via form
         async function createTask(event) {
             event.preventDefault();
@@ -2014,6 +2302,7 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
             const taskType = document.getElementById('taskType').value;
             const taskPrompt = document.getElementById('taskPrompt').value;
             const scheduleCron = document.getElementById('scheduleCron').value;
+            const outputFormat = document.getElementById('outputFormat').value;
 
             const payload = {
                 task_type: taskType,
@@ -2022,6 +2311,7 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
                     prompt: taskPrompt,
                     description: taskPrompt
                 },
+                output_format: outputFormat,
                 created_by: 'dashboard'
             };
 
@@ -2039,13 +2329,16 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
                 const result = await response.json();
 
                 if (result.success) {
-                    showToast(`Task #${result.task_id} created successfully!`, 'success');
+                    showToast(`Task #${result.task_id} created successfully! (${outputFormat.toUpperCase()})`, 'success');
 
                     // Reset form
                     document.getElementById('taskType').value = '';
                     document.getElementById('taskPrompt').value = '';
                     document.getElementById('scheduleCron').value = '';
                     document.getElementById('cronPreview').classList.remove('active');
+
+                    // Reset format to default (md)
+                    selectFormat('md');
 
                     // Refresh tasks
                     loadTasks();
