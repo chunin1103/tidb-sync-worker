@@ -579,6 +579,24 @@ def list_reports():
 
 
 # =============================================================================
+# FAVICON ROUTE (Prevent 404 errors)
+# =============================================================================
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve a simple favicon to prevent 404 errors in browser console"""
+    from flask import send_file
+    from io import BytesIO
+    import base64
+
+    # Simple 16x16 transparent PNG (1x1 pixel, transparent)
+    favicon_data = base64.b64decode(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+    )
+    return send_file(BytesIO(favicon_data), mimetype='image/x-icon')
+
+
+# =============================================================================
 # ROOT ENDPOINT (Unified Health Check)
 # =============================================================================
 
