@@ -110,6 +110,12 @@
         .reset-btn:hover {
             background: #777 !important;
         }
+        .dedupe-btn {
+            background: #ff9800 !important;
+        }
+        .dedupe-btn:hover {
+            background: #f57c00 !important;
+        }
 
         /* Card-based layout for questions */
         .questions-container {
@@ -504,6 +510,7 @@
 
                     <button type="submit">Apply Filters</button>
                     <a href="/reports/reorder-calculator/questions"><button type="button" class="reset-btn">Reset</button></a>
+                    <button type="button" class="dedupe-btn" onclick="cleanDuplicates()">🧹 Clean Duplicates</button>
                 </div>
             </form>
         </div>
@@ -603,6 +610,28 @@
                 this.style.height = Math.max(120, this.scrollHeight) + 'px';
             });
         });
+
+        // Clean duplicates function
+        async function cleanDuplicates() {
+            if (!confirm('This will remove duplicate questions, keeping answered ones. Continue?')) {
+                return;
+            }
+            try {
+                const response = await fetch('/reports/reorder-calculator/deduplicate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                const result = await response.json();
+                if (result.success) {
+                    alert(`${result.message}\n\nKept ${result.details.kept_answered} answered, ${result.details.kept_most_recent} most recent.`);
+                    location.reload();
+                } else {
+                    alert('Error: ' + result.error);
+                }
+            } catch (err) {
+                alert('Failed to clean duplicates: ' + err.message);
+            }
+        }
     </script>
 </body>
 </html>

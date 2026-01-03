@@ -109,10 +109,32 @@ def update_session_status(session_id: str, status: str) -> None:
 # QUESTION MANAGEMENT
 # ============================================================================
 
-def save_question(session_id: str, product_id: int, product_name: str, question: Dict) -> None:
-    """Save a clarification question"""
+def save_question(session_id: str, product_id: int, product_name: str, question: Dict) -> bool:
+    """
+    Save a clarification question.
+    Skips if an answered question with same product_id and field_name already exists.
+
+    Returns:
+        True if question was saved, False if skipped (duplicate with answered version)
+    """
     db = get_db_session()
     try:
+        # Check if an answered question already exists for this product/field combo
+        existing = db.execute(text("""
+            SELECT question_id FROM reorder_questions
+            WHERE product_id = :product_id
+              AND field_name = :field_name
+              AND client_answer IS NOT NULL
+            LIMIT 1
+        """), {
+            'product_id': product_id,
+            'field_name': question['field']
+        }).fetchone()
+
+        if existing:
+            # Skip - already answered
+            return False
+
         db.execute(text("""
             INSERT INTO reorder_questions (session_id, product_id, product_name, priority, question_text, field_name, suggested_answer)
             VALUES (:session_id, :product_id, :product_name, :priority, :question_text, :field_name, :suggested_answer)
@@ -126,6 +148,7 @@ def save_question(session_id: str, product_id: int, product_name: str, question:
             'suggested_answer': question['suggested_answer']
         })
         db.commit()
+        return True
     finally:
         db.close()
 
@@ -261,6 +284,83 @@ def get_all_questions(limit: int = 100, answered: Optional[bool] = None, priorit
             'manufacturer': r[12],
             'status': 'Answered' if r[8] else 'Pending'
         } for r in results]
+    finally:
+        db.close()
+
+
+def deduplicate_questions() -> Dict:
+    """
+    Remove duplicate questions, keeping answered ones over pending.
+
+    Logic:
+    - Group questions by (product_id, field_name)
+    - If any in group is answered, delete all pending duplicates
+    - If all pending, keep only the most recent one
+
+    Returns:
+        Summary dict with counts of deleted questions
+    """
+    db = get_db_session()
+    try:
+        # Find all duplicate groups (same product_id and field_name)
+        duplicates_query = """
+            SELECT product_id, field_name, COUNT(*) as cnt
+            FROM reorder_questions
+            GROUP BY product_id, field_name
+            HAVING COUNT(*) > 1
+        """
+        duplicate_groups = db.execute(text(duplicates_query)).fetchall()
+
+        deleted_count = 0
+        kept_answered = 0
+        kept_recent = 0
+
+        for group in duplicate_groups:
+            product_id, field_name, count = group
+
+            # Get all questions in this group
+            group_query = """
+                SELECT question_id, client_answer, created_at
+                FROM reorder_questions
+                WHERE product_id = :product_id AND field_name = :field_name
+                ORDER BY
+                    CASE WHEN client_answer IS NOT NULL THEN 0 ELSE 1 END,
+                    created_at DESC
+            """
+            questions = db.execute(text(group_query), {
+                'product_id': product_id,
+                'field_name': field_name
+            }).fetchall()
+
+            # First question is the one to keep (answered first, then most recent)
+            keep_id = questions[0][0]
+            has_answered = questions[0][1] is not None
+
+            if has_answered:
+                kept_answered += 1
+            else:
+                kept_recent += 1
+
+            # Delete the rest
+            delete_ids = [q[0] for q in questions[1:]]
+            if delete_ids:
+                placeholders = ', '.join([f':id{i}' for i in range(len(delete_ids))])
+                delete_query = f"DELETE FROM reorder_questions WHERE question_id IN ({placeholders})"
+                params = {f'id{i}': qid for i, qid in enumerate(delete_ids)}
+                db.execute(text(delete_query), params)
+                deleted_count += len(delete_ids)
+
+        db.commit()
+
+        return {
+            'duplicate_groups_found': len(duplicate_groups),
+            'questions_deleted': deleted_count,
+            'kept_answered': kept_answered,
+            'kept_most_recent': kept_recent
+        }
+    except Exception as e:
+        db.rollback()
+        raise e
     finally:
         db.close()
 

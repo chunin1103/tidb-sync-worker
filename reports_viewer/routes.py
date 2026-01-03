@@ -14,7 +14,7 @@ from .database import (
     save_session, get_session, update_session_status,
     save_question, get_unanswered_questions, get_all_questions, save_answer,
     save_manual_edit, get_manual_edits,
-    track_question_for_learning
+    track_question_for_learning, deduplicate_questions
 )
 
 
@@ -384,3 +384,24 @@ def save_answer_from_dashboard():
 
     except Exception as e:
         return jsonify({'error': f'Failed to save answer: {str(e)}'}), 500
+
+
+@reports_bp.route('/reorder-calculator/deduplicate', methods=['POST'])
+def deduplicate_questions_route():
+    """
+    Remove duplicate questions from the database.
+    Keeps answered questions over pending ones.
+    If all are pending, keeps the most recent.
+    """
+    try:
+        result = deduplicate_questions()
+        return jsonify({
+            'success': True,
+            'message': f"Cleaned up {result['questions_deleted']} duplicate questions",
+            'details': result
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
