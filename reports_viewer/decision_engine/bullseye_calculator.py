@@ -67,7 +67,7 @@ class BullseyeCalculator(BaseCalculator):
                 'questions': [{
                     'priority': 'HIGH',
                     'question': f'Product "{product_name}" (ID: {product_id}) has never sold. Should we stock it?',
-                    'field_name': 'reorder_quantity',
+                    'field': 'reorder_quantity',
                     'suggested_answer': 'No (wait for first sale)'
                 }],
                 'calculation_details': {
@@ -98,7 +98,7 @@ class BullseyeCalculator(BaseCalculator):
             questions.append({
                 'priority': 'MEDIUM',
                 'question': f'Product "{product_name}" is at {years_in_stock:.2f} years (above 0.25 but below 0.40 target). Order {reorder_quantity} units to reach target?',
-                'field_name': 'reorder_quantity',
+                'field': 'reorder_quantity',
                 'suggested_answer': f'{reorder_quantity} units (conservative approach)'
             })
 
@@ -139,14 +139,14 @@ class BullseyeCalculator(BaseCalculator):
             questions.append({
                 'priority': 'MEDIUM',
                 'question': f'Product "{product_name}" is 3mm Half Sheet. Check if excess Half Sheets can be cascaded (2 Half = 1 Full for cutting).',
-                'field_name': 'cascade_opportunity',
+                'field': 'cascade_opportunity',
                 'suggested_answer': 'Review inventory for cascade opportunity before ordering'
             })
         elif '10' in size and 'x' in size:  # 10x10 or 5x10
             questions.append({
                 'priority': 'LOW',
                 'question': f'Product "{product_name}" ({size}). Check if larger sizes can be cascaded down to reduce order.',
-                'field_name': 'cascade_opportunity',
+                'field': 'cascade_opportunity',
                 'suggested_answer': 'Review cascade options (10×10→5×10→5×5)'
             })
 
