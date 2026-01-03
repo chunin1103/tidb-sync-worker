@@ -1739,9 +1739,9 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
 
                 ${task.tool_usage && task.tool_usage.length > 0 ? `
                 <div class="modal-section">
-                    <div class="modal-section-title">🔧 Tools Used</div>
-                    <div class="modal-data" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                        ${task.tool_usage.map(tool => `<span style="background: var(--neon-blue); color: var(--bg-dark); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${tool}</span>`).join('')}
+                    <div class="modal-section-title">🔧 Tools Used (${task.tool_usage.length} calls)</div>
+                    <div class="modal-data">
+                        ${formatToolBadges(task.tool_usage)}
                     </div>
                 </div>
                 ` : ''}
@@ -1853,11 +1853,9 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
                             indicator = 'failed';
                         }
 
-                        // Format tool usage badges
+                        // Format tool usage badges with beautiful categorized display
                         const toolBadges = task.tool_usage && task.tool_usage.length > 0
-                            ? `<div style="margin-top: 4px;">${task.tool_usage.map(tool =>
-                                `<span style="background: var(--neon-blue); color: var(--bg-dark); padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; margin-right: 4px;">${tool}</span>`
-                              ).join('')}</div>`
+                            ? formatToolBadgesCompact(task.tool_usage)
                             : '';
 
                         return `
@@ -2194,6 +2192,191 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
             const emoji = emojis[type] || '📝';
             const formatted = type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
             return `${emoji} ${formatted}`;
+        }
+
+        // ============================================================================
+        // TOOL USAGE FORMATTING SYSTEM
+        // Beautiful, categorized tool badges with icons and colors
+        // ============================================================================
+
+        const TOOL_CONFIG = {
+            // File Operations - Blue
+            'Read': { icon: '📖', category: 'file', color: '#3b82f6', name: 'Read' },
+            'Write': { icon: '✏️', category: 'file', color: '#3b82f6', name: 'Write' },
+            'Edit': { icon: '📝', category: 'file', color: '#3b82f6', name: 'Edit' },
+            'Glob': { icon: '🔍', category: 'file', color: '#3b82f6', name: 'Glob' },
+            'Grep': { icon: '🔎', category: 'file', color: '#3b82f6', name: 'Grep' },
+            'NotebookEdit': { icon: '📓', category: 'file', color: '#3b82f6', name: 'Notebook' },
+
+            // System Operations - Purple
+            'Bash': { icon: '⚡', category: 'system', color: '#a855f7', name: 'Bash' },
+            'Task': { icon: '🤖', category: 'system', color: '#a855f7', name: 'Agent' },
+            'TaskOutput': { icon: '📤', category: 'system', color: '#a855f7', name: 'Output' },
+            'KillShell': { icon: '🛑', category: 'system', color: '#a855f7', name: 'Kill' },
+            'LSP': { icon: '🔗', category: 'system', color: '#a855f7', name: 'LSP' },
+
+            // Web Operations - Orange
+            'WebFetch': { icon: '🌐', category: 'web', color: '#f97316', name: 'Fetch' },
+            'WebSearch': { icon: '🔎', category: 'web', color: '#f97316', name: 'Search' },
+
+            // Database (MCP TiDB) - Green
+            'mcp__tidb-mcp__query': { icon: '🗄️', category: 'database', color: '#22c55e', name: 'DB Query' },
+            'mcp__tidb-mcp__describe_table': { icon: '📋', category: 'database', color: '#22c55e', name: 'Schema' },
+            'mcp__tidb-mcp__list_tables': { icon: '📑', category: 'database', color: '#22c55e', name: 'Tables' },
+            'mcp__tidb-mcp__today_orders': { icon: '📦', category: 'database', color: '#22c55e', name: 'Orders' },
+            'mcp__tidb-mcp__recent_orders': { icon: '🕐', category: 'database', color: '#22c55e', name: 'Recent' },
+            'mcp__tidb-mcp__order_details': { icon: '🔍', category: 'database', color: '#22c55e', name: 'Details' },
+
+            // Browser (MCP Playwright) - Pink
+            'mcp__playwright__browser_snapshot': { icon: '📸', category: 'browser', color: '#ec4899', name: 'Snapshot' },
+            'mcp__playwright__browser_click': { icon: '👆', category: 'browser', color: '#ec4899', name: 'Click' },
+            'mcp__playwright__browser_type': { icon: '⌨️', category: 'browser', color: '#ec4899', name: 'Type' },
+            'mcp__playwright__browser_navigate': { icon: '🧭', category: 'browser', color: '#ec4899', name: 'Navigate' },
+            'mcp__playwright__browser_take_screenshot': { icon: '📷', category: 'browser', color: '#ec4899', name: 'Screenshot' },
+            'mcp__playwright__browser_evaluate': { icon: '⚙️', category: 'browser', color: '#ec4899', name: 'Evaluate' },
+            'mcp__playwright__browser_wait_for': { icon: '⏳', category: 'browser', color: '#ec4899', name: 'Wait' },
+
+            // Render MCP - Teal
+            'mcp__render__list_services': { icon: '☁️', category: 'render', color: '#14b8a6', name: 'Services' },
+            'mcp__render__get_service': { icon: '🔍', category: 'render', color: '#14b8a6', name: 'Service' },
+            'mcp__render__list_logs': { icon: '📜', category: 'render', color: '#14b8a6', name: 'Logs' },
+            'mcp__render__get_metrics': { icon: '📊', category: 'render', color: '#14b8a6', name: 'Metrics' },
+
+            // IDE MCP - Yellow
+            'mcp__ide__getDiagnostics': { icon: '🩺', category: 'ide', color: '#eab308', name: 'Diagnostics' },
+            'mcp__ide__executeCode': { icon: '▶️', category: 'ide', color: '#eab308', name: 'Execute' },
+
+            // Planning & Interaction - Cyan
+            'TodoWrite': { icon: '✅', category: 'planning', color: '#06b6d4', name: 'Todo' },
+            'AskUserQuestion': { icon: '❓', category: 'planning', color: '#06b6d4', name: 'Ask' },
+            'EnterPlanMode': { icon: '📋', category: 'planning', color: '#06b6d4', name: 'Plan' },
+            'ExitPlanMode': { icon: '✔️', category: 'planning', color: '#06b6d4', name: 'Done' },
+            'Skill': { icon: '🎯', category: 'planning', color: '#06b6d4', name: 'Skill' }
+        };
+
+        function getToolInfo(toolName) {
+            // Direct match
+            if (TOOL_CONFIG[toolName]) {
+                return TOOL_CONFIG[toolName];
+            }
+
+            // Pattern matching for MCP tools
+            if (toolName.startsWith('mcp__tidb-mcp__')) {
+                const action = toolName.replace('mcp__tidb-mcp__', '');
+                return { icon: '🗄️', category: 'database', color: '#22c55e', name: action.replace(/_/g, ' ') };
+            }
+            if (toolName.startsWith('mcp__playwright__')) {
+                const action = toolName.replace('mcp__playwright__browser_', '').replace('mcp__playwright__', '');
+                return { icon: '🎭', category: 'browser', color: '#ec4899', name: action.replace(/_/g, ' ') };
+            }
+            if (toolName.startsWith('mcp__render__')) {
+                const action = toolName.replace('mcp__render__', '');
+                return { icon: '☁️', category: 'render', color: '#14b8a6', name: action.replace(/_/g, ' ') };
+            }
+            if (toolName.startsWith('mcp__ide__')) {
+                const action = toolName.replace('mcp__ide__', '');
+                return { icon: '💻', category: 'ide', color: '#eab308', name: action };
+            }
+            if (toolName.startsWith('mcp__')) {
+                const action = toolName.split('__').pop();
+                return { icon: '🔌', category: 'mcp', color: '#6366f1', name: action };
+            }
+
+            // Fallback for unknown tools
+            return { icon: '🔧', category: 'other', color: '#6b7280', name: toolName };
+        }
+
+        function formatToolBadge(toolName, size = 'normal') {
+            const info = getToolInfo(toolName);
+            const isSmall = size === 'small';
+            const padding = isSmall ? '3px 8px' : '5px 12px';
+            const fontSize = isSmall ? '11px' : '12px';
+            const iconSize = isSmall ? '12px' : '14px';
+
+            return `
+                <span class="tool-badge"
+                      style="
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 4px;
+                        background: ${info.color}20;
+                        border: 1px solid ${info.color}50;
+                        color: ${info.color};
+                        padding: ${padding};
+                        border-radius: 6px;
+                        font-size: ${fontSize};
+                        font-weight: 600;
+                        font-family: 'JetBrains Mono', monospace;
+                        white-space: nowrap;
+                        transition: all 0.2s ease;
+                      "
+                      title="${toolName}"
+                      onmouseover="this.style.background='${info.color}35'; this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px ${info.color}30';"
+                      onmouseout="this.style.background='${info.color}20'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                    <span style="font-size: ${iconSize};">${info.icon}</span>
+                    <span>${info.name}</span>
+                </span>
+            `;
+        }
+
+        function formatToolBadges(tools, size = 'normal') {
+            if (!tools || tools.length === 0) return '';
+
+            // Count tool occurrences
+            const toolCounts = {};
+            tools.forEach(tool => {
+                toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+            });
+
+            // Group by category for better organization
+            const categorized = {};
+            Object.keys(toolCounts).forEach(tool => {
+                const info = getToolInfo(tool);
+                if (!categorized[info.category]) {
+                    categorized[info.category] = [];
+                }
+                categorized[info.category].push({ tool, count: toolCounts[tool], info });
+            });
+
+            // Render badges grouped by category
+            let html = '<div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;">';
+
+            Object.values(categorized).flat().forEach(({ tool, count, info }) => {
+                const badge = formatToolBadge(tool, size);
+                if (count > 1) {
+                    html += `
+                        <span style="position: relative; display: inline-flex;">
+                            ${badge}
+                            <span style="
+                                position: absolute;
+                                top: -6px;
+                                right: -6px;
+                                background: ${info.color};
+                                color: white;
+                                font-size: 10px;
+                                font-weight: bold;
+                                min-width: 16px;
+                                height: 16px;
+                                border-radius: 8px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                            ">×${count}</span>
+                        </span>
+                    `;
+                } else {
+                    html += badge;
+                }
+            });
+
+            html += '</div>';
+            return html;
+        }
+
+        // Compact version for activity feed
+        function formatToolBadgesCompact(tools) {
+            return formatToolBadges(tools, 'small');
         }
     </script>
 </body>
