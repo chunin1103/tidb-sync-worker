@@ -67,19 +67,24 @@ class ClaudeExecutor:
             logger.error(f"Error marking task {task_id} as started: {e}")
             return False
 
-    def mark_task_completed(self, task_id: int, result_path: str, summary: str) -> bool:
+    def mark_task_completed(self, task_id: int, result_path: str, summary: str, tool_usage: list = None) -> bool:
         """Mark task as completed"""
         try:
+            payload = {
+                'result_path': result_path,
+                'result_summary': summary
+            }
+            if tool_usage:
+                payload['tool_usage'] = json.dumps(tool_usage)
+
             response = requests.post(
                 f"{self.mcp_server}/AgentGarden/tasks/{task_id}/complete",
-                json={
-                    'result_path': result_path,
-                    'result_summary': summary
-                },
+                json=payload,
                 timeout=10
             )
             response.raise_for_status()
-            logger.info(f"✅ Task {task_id} completed: {summary}")
+            tools_str = f" (tools: {', '.join(tool_usage)})" if tool_usage else ""
+            logger.info(f"✅ Task {task_id} completed: {summary}{tools_str}")
             return True
         except requests.exceptions.RequestException as e:
             logger.error(f"Error marking task {task_id} as completed: {e}")
@@ -130,7 +135,8 @@ class ClaudeExecutor:
             self.mark_task_completed(
                 task_id,
                 result['path'],
-                result['summary']
+                result['summary'],
+                result.get('tool_usage', [])
             )
 
         except Exception as e:
@@ -416,6 +422,147 @@ Save all three files - user wants maximum flexibility!"""
 
 Use the Write tool to save the markdown content."""
 
+    def _get_debug_logs_before(self) -> set:
+        """Get set of existing debug log files before execution"""
+        debug_dir = Path.home() / ".claude" / "debug"
+        if debug_dir.exists():
+            return set(debug_dir.glob("*.txt"))
+        return set()
+
+    def _parse_debug_log(self, log_path: Path) -> list:
+        """Parse a Claude debug log file for tool usage"""
+        tool_calls = []
+        try:
+            with open(log_path, 'r') as f:
+                for line in f:
+                    # Look for tool execution patterns
+                    if 'executePreToolHooks called for tool:' in line:
+                        # Extract tool name
+                        parts = line.split('executePreToolHooks called for tool:')
+                        if len(parts) > 1:
+                            tool_name = parts[1].strip()
+                            tool_calls.append(('start', tool_name, line.split('[DEBUG]')[0].strip()))
+
+                    elif 'PostToolUse with query:' in line:
+                        # Tool completed
+                        parts = line.split('PostToolUse with query:')
+                        if len(parts) > 1:
+                            tool_name = parts[1].strip()
+                            tool_calls.append(('end', tool_name, line.split('[DEBUG]')[0].strip()))
+
+                    elif "MCP server" in line and "Calling MCP tool:" in line:
+                        # MCP tool call
+                        parts = line.split('Calling MCP tool:')
+                        if len(parts) > 1:
+                            tool_name = parts[1].strip()
+                            tool_calls.append(('mcp', tool_name, line.split('[DEBUG]')[0].strip()))
+
+                    elif "Tool '" in line and "completed successfully" in line:
+                        # MCP tool completed
+                        import re
+                        match = re.search(r"Tool '([^']+)' completed successfully in (\d+)ms", line)
+                        if match:
+                            tool_name = match.group(1)
+                            duration = match.group(2)
+                            tool_calls.append(('mcp_done', f"{tool_name} ({duration}ms)", line.split('[DEBUG]')[0].strip()))
+
+        except Exception as e:
+            logger.error(f"Error parsing debug log: {e}")
+
+        return tool_calls
+
+    def _stream_claude_execution(self, command: list, cwd: str, timeout: int = 300) -> tuple:
+        """Execute Claude Code CLI and parse debug logs for detailed tool usage
+
+        Returns:
+            tuple: (stdout, stderr, returncode, tool_usage_list)
+        """
+        import subprocess
+
+        logger.info("🤖 Starting Claude Code CLI execution...")
+        logger.info(f"   Timeout: {timeout}s")
+
+        # Get existing debug logs before execution
+        debug_logs_before = self._get_debug_logs_before()
+
+        full_output = []
+        error_output = []
+        tools_used = []  # List of unique tools used
+
+        # Use Popen to capture output
+        process = subprocess.Popen(
+            command,
+            cwd=cwd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        logger.info("   📝 Claude is working...")
+
+        # Wait for process with timeout
+        try:
+            stdout, stderr = process.communicate(timeout=timeout)
+            full_output.append(stdout)
+            if stderr:
+                error_output.append(stderr)
+            returncode = process.returncode
+        except subprocess.TimeoutExpired:
+            logger.error(f"   ⏱️  Claude execution TIMEOUT after {timeout}s - killing process...")
+            process.kill()
+            stdout, stderr = process.communicate()
+            full_output.append(stdout)
+            if stderr:
+                error_output.append(stderr)
+            returncode = -1
+
+        # Find new debug logs created during execution
+        debug_logs_after = self._get_debug_logs_before()
+        new_debug_logs = debug_logs_after - debug_logs_before
+
+        # Parse new debug logs for tool usage
+        if new_debug_logs:
+            logger.info(f"   📋 Parsing {len(new_debug_logs)} debug log(s) for tool usage...")
+
+            all_tool_calls = []
+            for log_path in sorted(new_debug_logs, key=lambda p: p.stat().st_mtime):
+                tool_calls = self._parse_debug_log(log_path)
+                all_tool_calls.extend(tool_calls)
+
+            # Log tool usage summary and collect unique tools
+            if all_tool_calls:
+                logger.info(f"   🔧 Tool calls detected: {len(all_tool_calls)}")
+                for call_type, tool_name, _ in all_tool_calls:
+                    if call_type == 'start':
+                        logger.info(f"      ▶️  {tool_name}")
+                        if tool_name not in tools_used:
+                            tools_used.append(tool_name)
+                    elif call_type == 'mcp':
+                        logger.info(f"      🌐 MCP: {tool_name}")
+                        mcp_tool = f"MCP:{tool_name}"
+                        if mcp_tool not in tools_used:
+                            tools_used.append(mcp_tool)
+                    elif call_type == 'mcp_done':
+                        logger.info(f"      ✅ MCP completed: {tool_name}")
+            else:
+                logger.info("   ℹ️  No tool calls found in debug logs")
+        else:
+            logger.info("   ℹ️  No new debug logs created")
+
+        if error_output:
+            logger.warning(f"   ⚠️  Stderr: {''.join(error_output)[:200]}")
+
+        logger.info(f"   {'✅' if returncode == 0 else '❌'} Claude execution finished (exit code: {returncode})")
+        if tools_used:
+            logger.info(f"   🛠️  Tools used: {', '.join(tools_used)}")
+
+        return (
+            ''.join(full_output).strip(),
+            ''.join(error_output).strip(),
+            returncode,
+            tools_used
+        )
+
     def handle_agent_report(self, task_json: Dict, output_format: str = 'md') -> Dict:
         """Handle autonomous agent reports (HYBRID: Direct MCP + Claude Code CLI)"""
         agent_type = task_json.get('agent_type', 'Unknown')
@@ -426,6 +573,9 @@ Use the Write tool to save the markdown content."""
         logger.info(f"📊 Generating agent report: {report_title} ({agent_type})")
         logger.info(f"🔧 HYBRID MODE: Direct MCP data fetch + Claude Code CLI analysis")
         logger.info(f"📄 Output format: {output_format.upper()}")
+
+        # Initialize tools_used for tracking
+        tools_used = []
 
         # Get output configuration
         output_config = task_json.get('output', {})
@@ -482,16 +632,16 @@ Analyze the database context provided and generate the file now:"""
             # Call Claude Code CLI with auto-approval for automated execution
             # Set working directory to output folder so Claude can write files directly
             # NOTE: --print flag disabled to allow tool usage (Write, Bash, etc.)
-            result = subprocess.run(
-                ['claude', '--dangerously-skip-permissions', claude_prompt],
-                cwd=str(output_path),  # Run from output directory
-                capture_output=True,
-                text=True,
-                timeout=300  # 5 minute timeout
+            command = ['claude', '--dangerously-skip-permissions', claude_prompt]
+
+            # Use streaming execution for detailed logging
+            stdout, stderr, returncode, tools_used = self._stream_claude_execution(
+                command,
+                str(output_path)
             )
 
-            if result.returncode == 0:
-                report_content = result.stdout.strip()
+            if returncode == 0:
+                report_content = stdout
 
                 # Add metadata header
                 full_report = f"""# {report_title}
@@ -510,7 +660,7 @@ Analyze the database context provided and generate the file now:"""
 """
             else:
                 # Error occurred
-                error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+                error_msg = stderr if stderr else "Unknown error"
                 logger.error(f"❌ Claude Code CLI failed: {error_msg}")
 
                 full_report = f"""# {report_title} - ERROR
@@ -580,7 +730,8 @@ Claude Code CLI execution timed out after 5 minutes.
 
         return {
             'path': relative_path,
-            'summary': f"Generated {report_title} ({agent_type})"
+            'summary': f"Generated {report_title} ({agent_type})",
+            'tool_usage': tools_used
         }
 
     def run(self):

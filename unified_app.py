@@ -392,12 +392,15 @@ def complete_claude_task_endpoint(task_id):
             db,
             task_id,
             result_path=data.get('result_path'),
-            result_summary=data.get('result_summary')
+            result_summary=data.get('result_summary'),
+            tool_usage=data.get('tool_usage')
         )
         db.close()
 
         if success:
-            logger.info(f"✅ Claude completed task {task_id}: {data.get('result_summary', 'No summary')}")
+            tools = data.get('tool_usage', '')
+            tools_str = f" (tools: {tools})" if tools else ""
+            logger.info(f"✅ Claude completed task {task_id}: {data.get('result_summary', 'No summary')}{tools_str}")
             return jsonify({'success': True, 'message': 'Task completed'})
         else:
             return jsonify({'success': False, 'error': 'Task not found'}), 404

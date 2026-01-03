@@ -1737,6 +1737,15 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
                 </div>
                 ` : ''}
 
+                ${task.tool_usage && task.tool_usage.length > 0 ? `
+                <div class="modal-section">
+                    <div class="modal-section-title">🔧 Tools Used</div>
+                    <div class="modal-data" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        ${task.tool_usage.map(tool => `<span style="background: var(--neon-blue); color: var(--bg-dark); padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: bold;">${tool}</span>`).join('')}
+                    </div>
+                </div>
+                ` : ''}
+
                 ${task.result_path ? `
                 <div class="modal-section">
                     <div class="modal-section-title">Report Path</div>
@@ -1844,13 +1853,20 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
                             indicator = 'failed';
                         }
 
+                        // Format tool usage badges
+                        const toolBadges = task.tool_usage && task.tool_usage.length > 0
+                            ? `<div style="margin-top: 4px;">${task.tool_usage.map(tool =>
+                                `<span style="background: var(--neon-blue); color: var(--bg-dark); padding: 2px 6px; border-radius: 3px; font-size: 10px; font-weight: bold; margin-right: 4px;">${tool}</span>`
+                              ).join('')}</div>`
+                            : '';
+
                         return `
                             <div class="activity-item">
                                 <div class="activity-indicator indicator-${indicator}"></div>
                                 <div class="activity-time">${timeStr}</div>
                                 <div class="activity-content">
                                     <div class="activity-action">${action}</div>
-                                    <div class="activity-details">Task #${task.id}: ${formatAgentType(task.task_type || 'General')}</div>
+                                    <div class="activity-details">Task #${task.id}: ${formatAgentType(task.task_type || 'General')}${toolBadges}</div>
                                 </div>
                             </div>
                         `;

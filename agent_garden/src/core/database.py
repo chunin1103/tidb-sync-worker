@@ -128,6 +128,7 @@ class ClaudeTask(Base):
     status = Column(String(20), default='pending')  # 'pending', 'ready', 'in_progress', 'completed', 'failed'
     result_path = Column(String(500))  # Path to result file in OneDrive
     result_summary = Column(Text)  # Brief summary of the result
+    tool_usage = Column(Text)  # JSON array of tools used during execution (e.g., ["Write", "Bash", "Read"])
     error_log = Column(Text)  # Error message/traceback if failed
     created_by = Column(String(50), default='gemini')  # Who created the task
     created_at = Column(DateTime, default=datetime.utcnow)

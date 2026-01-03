@@ -108,7 +108,7 @@ def start_claude_task(db: Session, task_id: int) -> bool:
         return False
 
 
-def complete_claude_task(db: Session, task_id: int, result_path: str = None, result_summary: str = None) -> bool:
+def complete_claude_task(db: Session, task_id: int, result_path: str = None, result_summary: str = None, tool_usage: str = None) -> bool:
     """
     Mark a task as completed
 
@@ -117,6 +117,7 @@ def complete_claude_task(db: Session, task_id: int, result_path: str = None, res
         task_id: ID of the task
         result_path: Path to result file in OneDrive
         result_summary: Brief summary of the result
+        tool_usage: JSON string of tools used (e.g., '["Write", "Bash"]')
 
     Returns:
         True if successful, False otherwise
@@ -153,6 +154,7 @@ def complete_claude_task(db: Session, task_id: int, result_path: str = None, res
 
         task.result_path = result_path
         task.result_summary = result_summary
+        task.tool_usage = tool_usage
         task.execution_count += 1
         task.last_execution_at = datetime.utcnow()
 
@@ -264,6 +266,7 @@ def get_claude_task(db: Session, task_id: int) -> Optional[Dict]:
             'status': task.status,
             'result_path': task.result_path,
             'result_summary': task.result_summary,
+            'tool_usage': json.loads(task.tool_usage) if task.tool_usage else None,
             'error_log': task.error_log,
             'created_by': task.created_by,
             'created_at': task.created_at.isoformat() if task.created_at else None,
@@ -312,6 +315,7 @@ def get_all_claude_tasks(db: Session, status: str = None, task_type: str = None,
             'schedule_cron': task.schedule_cron,
             'status': task.status,
             'result_summary': task.result_summary,
+            'tool_usage': json.loads(task.tool_usage) if task.tool_usage else None,
             'created_by': task.created_by,
             'created_at': task.created_at.isoformat() if task.created_at else None,
             'execution_count': task.execution_count,
