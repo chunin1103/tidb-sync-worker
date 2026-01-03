@@ -14,6 +14,7 @@ class BullseyeCalculator(BaseCalculator):
     Thresholds:
     - ORDER_DECISION: 0.25 years (91 days) - if below, order is needed
     - ORDER_TARGET: 0.40 years (146 days) - target inventory level
+    - PARENT_PRODUCT_THRESHOLD: 75000 - products with qty >= this are Parent Products
 
     Note: Full cascade algorithm (5 steps) requires manual review.
     This calculator provides basic reorder quantities and flags cascade opportunities.
@@ -22,6 +23,7 @@ class BullseyeCalculator(BaseCalculator):
     ORDER_DECISION = 0.25  # 91 days - order if below this
     ORDER_TARGET = 0.40    # 146 days - target inventory level
     LEAN_THRESHOLD = 0.20  # Flag as lean inventory
+    PARENT_PRODUCT_THRESHOLD = 75000  # Products with qty >= this are Parent Products (NOT orderable)
 
     def __init__(self):
         super().__init__("Bullseye Glass")
@@ -57,6 +59,21 @@ class BullseyeCalculator(BaseCalculator):
 
         questions = []
         calculation_details = {}
+
+        # CASE 0: Parent Product (qty >= 75000 or years_in_stock >= 75000)
+        # Parent products are virtual groupings, NOT purchasable inventory
+        if self._is_parent_product(quantity_in_stock, years_in_stock):
+            return {
+                'reorder_quantity': 0,
+                'years_in_stock': years_in_stock,
+                'reason': 'Parent Product - NOT orderable (virtual grouping record)',
+                'questions': [],
+                'calculation_details': {
+                    'threshold_used': 'N/A',
+                    'alert': 'PARENT_PRODUCT',
+                    'note': 'Parent products have qty >= 75000. Only Child products can be ordered.'
+                }
+            }
 
         # CASE 1: Never sold (Purchased = 0)
         if purchased == 0:
@@ -167,6 +184,31 @@ class BullseyeCalculator(BaseCalculator):
             }
         }
 
+    def _is_parent_product(self, quantity_in_stock: int, years_in_stock: Optional[float]) -> bool:
+        """
+        Check if a product is a Parent Product (virtual grouping, NOT orderable)
+
+        Parent Products are identified by:
+        - quantity_in_stock >= 75000, OR
+        - years_in_stock >= 75000
+
+        The 75000+ value is a sentinel indicating "virtual grouping record, not real inventory."
+        Parent products CANNOT be ordered from vendors - reorder_quantity is always 0.
+        Only Child products (with products_parent_id > 0 and qty < 75000) can be ordered.
+
+        Args:
+            quantity_in_stock: Current inventory level
+            years_in_stock: Calculated years of coverage (can be None if no sales)
+
+        Returns:
+            True if this is a Parent Product, False if it's a Child Product
+        """
+        if quantity_in_stock >= self.PARENT_PRODUCT_THRESHOLD:
+            return True
+        if years_in_stock is not None and years_in_stock >= self.PARENT_PRODUCT_THRESHOLD:
+            return True
+        return False
+
     def get_manufacturer_info(self) -> Dict:
         """Return information about this manufacturer's rules"""
         return {
@@ -174,12 +216,16 @@ class BullseyeCalculator(BaseCalculator):
             'order_decision_threshold': self.ORDER_DECISION,
             'order_target_threshold': self.ORDER_TARGET,
             'lean_threshold': self.LEAN_THRESHOLD,
+            'parent_product_threshold': self.PARENT_PRODUCT_THRESHOLD,
             'thresholds': {
                 '0.25 years (91 days)': 'Order Decision - if below, order is needed',
                 '0.40 years (146 days)': 'Order Target - aim for this level',
-                '0.20 years (73 days)': 'Lean Inventory - flag for urgent attention'
+                '0.20 years (73 days)': 'Lean Inventory - flag for urgent attention',
+                '75000+ (qty or years)': 'Parent Product - NOT orderable (virtual grouping)'
             },
             'notes': [
+                'PARENT PRODUCTS: qty >= 75000 or years >= 75000 = NEVER order (reorder_qty = 0)',
+                'Only Child products (with products_parent_id > 0) can be ordered',
                 'Bullseye uses two-threshold system (0.25 decision, 0.40 target)',
                 'Full 5-step cascade algorithm not automated - manual review required',
                 'Cascade opportunities flagged in questions for manual processing',
