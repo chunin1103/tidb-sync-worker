@@ -418,3 +418,22 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-04: Format-Specific Report Preview & File Path Display
+**Status**: Completed
+**Files Modified**: unified_app.py:693-879 (view_report, report_info), agent_garden/templates/index.html:2214-2393
+**Problem**: Clicking CSV reports showed "Report not found"; no way to access files in OneDrive
+**Root Cause**: Path had "Reports/" prefix that wasn't being stripped; no format-specific handling
+**Approach**: Format-aware preview with local path display (vs one-size-fits-all markdown approach)
+**Key Changes**:
+- Backend: Strip "Reports/" prefix, add `?preview=true` for CSV table preview, add `/api/reports/info` endpoint
+- `.md` files: Show markdown preview with download/copy buttons
+- `.csv` files: Table preview (first 25 rows of 7,058 total) + download + local path display
+- `.xlsx` files: Download button + file size + local path (can't preview in browser)
+- `.json` files: Formatted JSON preview + download
+- UI buttons: "Download CSV", "Copy Path", "Reveal in Finder"
+**Commits**: 8d3c407
+**Testing**: Task 55 CSV (953KB, 7,058 Bullseye products) - preview loads correctly, shows local path
+**Impact**: Users can preview reports in-browser AND access files directly in OneDrive/Finder
+
+---
+
