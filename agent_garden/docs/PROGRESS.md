@@ -437,3 +437,22 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-04: Fix Report Path/Agent-Type Mismatch & Cloud CSV Handling
+**Status**: Completed
+**Files Modified**: unified_app.py:743-790 (view_report database queries)
+**Problem**: MD reports returning 404 "Report not found: Agents/report_*.md" even though content exists in DB
+**Root Cause**: Path has `Reports/Agents/...` but DB has `agent_type=general_report` - query by agent_type failed
+**Approach**: Search by `file_path LIKE '%filename%'` instead of `agent_type` match (vs fixing legacy data)
+**Key Changes**:
+- MD files: Query by `file_path.like('%filename%')` first, fallback to agent_type/report_title
+- CSV/XLSX on cloud: Return `local_file_only` response with summary from DB + expected file path
+- UI: Handle `local_file_only` error gracefully - show summary + copyable path + helpful message
+**Data Mismatch Examples**:
+- `agent_type: general_report` → `path: Reports/Agents/report_*.md` (old executor saved to Agents/)
+- `agent_type: sales_analysis` → `path: Reports/Agents/report_*.md` (same issue)
+**Commits**: d8ced32, fd7f10f, c524357
+**Testing**: All 10 reports in DB now viewable - MD files show content, CSV shows summary + path
+**Impact**: Reports work regardless of folder structure changes; cloud users see helpful info for local-only files
+
+---
+
