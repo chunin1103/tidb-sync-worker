@@ -292,6 +292,82 @@ CSV must include these columns for cascade to work:
 | REORDER | Zero stock OR below 28 days critical threshold |
 | WATCH | Below 91 days (0.25yr) target |
 
+### Cascade Algorithm Technical Details
+
+The cascade algorithm runs in **5 steps**, each building on the previous:
+
+```
+Step 1: CASCADE FROM INVENTORY
+├── Check Half Sheet excess (3mm only)
+├── Cut excess Half → 10x10 + 5x10
+└── Cascade 5x10 → 5x5 if surplus
+
+Step 2: CHECK ORDER THRESHOLD
+├── Any size below 0.25yr?
+├── Yes → Continue to Step 3
+└── No → Exit (no order needed)
+
+Step 3: CALCULATE MINIMUM ORDER
+├── Calculate deficits to reach 0.40yr
+├── Determine sheets for Half (save uncut)
+├── Determine sheets for 10x10 + 5x10 (cut)
+├── SIMULATE Step 4 cascade order ← CRITICAL
+└── Add extra sheets if 5x5 won't be covered
+
+Step 4: CASCADE FROM ORDER
+├── Apply 10x10 → 5x10 cascade FIRST
+├── Then 10x10 → 5x5 cascade
+└── Then 5x10 → 5x5 cascade
+
+Step 5: VERIFY ALL ≥ 0.40yr
+├── Skip sizes with 0 annual sales
+├── Check all other sizes ≥ 0.40yr
+└── Set All_Above_04 = Yes/No
+```
+
+#### Critical Implementation Notes
+
+**Step 3 must simulate Step 4's cascade order:**
+
+The projection must account for 10x10→5x10 happening BEFORE 10x10→5x5:
+
+```python
+# WRONG: Assumes all 10x10 surplus goes to 5x5
+five5_from_cascade = ten_surplus * 4
+
+# CORRECT: Simulate Step 4 order
+ten_used_for_five10 = min(surplus, ceil(five10_deficit / 2))
+ten_remaining = surplus - ten_used_for_five10
+five5_from_cascade = ten_remaining * 4  # Use REMAINING surplus
+```
+
+**Zero-demand sizes are automatically valid:**
+
+If a size has `purchased = 0` (no annual sales), it's skipped in the 0.40yr check. This is correct behavior - you can't have "years of stock" without sales.
+
+### Cascade Bug History (Fixed 2026-01-04)
+
+Two bugs were discovered and fixed in the cascade algorithm:
+
+| Bug | Symptom | Root Cause | Fix |
+|-----|---------|------------|-----|
+| **5x5 Coverage** | `All_Above_04 = No` for products with 5x5 demand | Step 3 projected 10x10 surplus → 5x5, but Step 4 consumed surplus for 5x10 first | Simulate Step 4 cascade order in Step 3 projection |
+| **5x10 Coverage** | 5x10 not reaching 0.40yr | Logic `if extra > current` failed when `extra == current` | Use `max(sheets_for_10x10, sheets_for_5x10)` directly |
+
+**Commits:**
+- `1865c67` - Initial 5x5 fix attempt (incomplete)
+- `0d1e3a6` - Complete fix for both bugs
+
+**Test Cases:**
+```python
+# All should return All_Above_04 = True:
+- 3mm with low 5x5 demand (0, 0, 0, 6/yr) → 4 sheets
+- 2mm with 5x5 demand (0, 8, 12, 10/yr) → 5 sheets
+- 2mm with competing 5x10/5x5 demand → proper coverage
+- 3mm with zero 5x5 demand (purchased=0) → skipped in check
+- 3mm high demand all zeros → 8 sheets, all covered
+```
+
 ---
 
 ## 🔌 API Endpoints
@@ -506,6 +582,26 @@ Questions are identified by `field_name` for deduplication:
 3. Check target threshold (Oceanside = 0.35 years)
 4. Review `Calculation_Details` column in exported CSV
 
+### Cascade Report: All_Above_04 = No
+**Common Causes:**
+1. **5x5 not covered** - Check if 5x5 has demand but 0 stock after ordering
+2. **5x10 not covered** - Check if sheets_to_cut is sufficient
+3. **Zero demand false positive** - Should NOT happen (0 demand = skipped)
+
+**Debugging Steps:**
+1. Check `5x5_After_Years` column - should be ≥ 0.40 or 0.00 (no demand)
+2. Check `Order_Steps` column - should include cascade to 5x5 if needed
+3. Re-upload data after fix deployment
+
+### Cascade Report: No products appear
+**Causes:**
+1. Not Bullseye Glass manufacturer
+2. CSV missing `Vendor_SKU` with `-FULL` or `-HALF` suffix
+3. Products don't contain size indicators (Half Sheet, 10x10, etc.)
+4. All products have `Quantity_in_Stock >= 75000` (parent products)
+
+**Solution:** Verify CSV has Bullseye vendor format and size indicators in product names.
+
 ---
 
 ## 🔮 Future Enhancements
@@ -532,5 +628,5 @@ Questions are identified by `field_name` for deduplication:
 
 ---
 
-**Last Updated:** 2026-01-04
-**Status:** ✅ Production (Oceanside + Bullseye Cascade)
+**Last Updated:** 2026-01-04 (Cascade bug fixes deployed)
+**Status:** ✅ Production (Oceanside + Bullseye Cascade v2)
