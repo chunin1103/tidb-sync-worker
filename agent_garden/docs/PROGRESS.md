@@ -456,3 +456,22 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-05: User-Friendly Schedule Picker for Task Creation
+**Status**: Completed
+**Files Modified**: agent_garden/templates/index.html:800-974 (CSS), 1768-1878 (HTML), 2797-2966 (JS)
+**Problem**: Raw cron expression input (`0 9 * * *`) not user-friendly - requires technical knowledge
+**Approach**: Visual preset buttons + time/day pickers (vs cron syntax education)
+**Key Changes**:
+- **Preset Buttons**: Run Once, Daily, Weekly, Hourly, Custom (clickable chips with icons)
+- **Time Picker**: 12-hour format (1-12), minute dropdown (00/15/30/45), AM/PM selector
+- **Day Picker**: Checkboxes for Mon-Sun (shown only for Weekly), smart display ("weekdays", "weekends")
+- **Preview**: Human-readable text (e.g., "Will run every Monday at 9:00 AM")
+- **Hidden Field**: Auto-generates cron expression behind the scenes (e.g., `30 14 * * 1,3,5`)
+**CSS**: 175 lines for schedule-presets, time-picker, day-picker, schedule-preview components
+**JavaScript**: selectSchedulePreset(), updateSchedulePreview(), getSelectedHour24(), formatDayNames()
+**Commits**: 06a5c1c
+**Testing**: Local Flask app verified, deployed to Render (https://gpt-mcp.onrender.com/AgentGarden)
+**Impact**: Users can schedule tasks without knowing cron syntax - just click and pick time
+
+---
+
