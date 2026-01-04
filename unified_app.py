@@ -745,10 +745,16 @@ def view_report(report_path):
             db = get_db()
             if db:
                 try:
+                    # Search by file_path first (most reliable)
                     report = db.query(ClaudeReport).filter(
-                        ClaudeReport.agent_type == agent_type,
-                        ClaudeReport.report_title == report_title
+                        ClaudeReport.file_path.like(f'%{filename}%')
                     ).first()
+                    # Fallback: search by agent_type and report_title
+                    if not report:
+                        report = db.query(ClaudeReport).filter(
+                            ClaudeReport.agent_type == agent_type,
+                            ClaudeReport.report_title == report_title
+                        ).first()
                     if report:
                         return Response(report.report_content, mimetype='text/markdown')
                 finally:
