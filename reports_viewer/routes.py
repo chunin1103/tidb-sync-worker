@@ -9,7 +9,7 @@ import pandas as pd
 import markdown
 from flask import render_template, request, redirect, Response, jsonify, url_for
 from . import reports_bp
-from .decision_engine import OceansideCalculator, BullseyeCalculator
+from .decision_engine import OceansideCalculator, BullseyeCalculator, analyze_cascade
 from .database import (
     save_session, get_session, update_session_status,
     save_question, get_unanswered_questions, get_all_questions, save_answer,
@@ -116,6 +116,22 @@ def upload_csv():
                     all_questions.extend(result['questions'])
 
         conn.commit()
+
+        # Run cascade analysis for Bullseye Glass
+        if manufacturer == 'Bullseye Glass':
+            try:
+                # Get all products as list of dicts for cascade analysis
+                products_for_cascade = df.to_dict('records')
+                cascade_results, cascade_validations = analyze_cascade(products_for_cascade)
+
+                # Store cascade results in SQLite
+                if cascade_results:
+                    cascade_df = pd.DataFrame(cascade_results)
+                    cascade_df.to_sql('cascade_report', conn, index=False, if_exists='replace')
+            except Exception as cascade_error:
+                # Log but don't fail the whole upload
+                print(f"Cascade analysis warning: {cascade_error}")
+
         conn.close()
 
         # Redirect based on questions
@@ -207,6 +223,29 @@ def download_page(session_id):
 
     conn = sqlite3.connect(db_path)
     df = pd.read_sql("SELECT * FROM products", conn)
+
+    # Check if cascade report exists (Bullseye Glass only)
+    cascade_available = False
+    cascade_stats = None
+    try:
+        # Check if cascade_report table exists
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cascade_report'")
+        if cursor.fetchone():
+            cascade_df = pd.read_sql("SELECT * FROM cascade_report", conn)
+            if len(cascade_df) > 0:
+                cascade_available = True
+                cascade_stats = {
+                    'total_families': len(cascade_df),
+                    'urgent_count': len(cascade_df[cascade_df['Flag'] == 'URGENT']),
+                    'reorder_count': len(cascade_df[cascade_df['Flag'] == 'REORDER']),
+                    'watch_count': len(cascade_df[cascade_df['Flag'] == 'WATCH']),
+                    'total_sheets': int(cascade_df['Sheets_to_Order'].sum()),
+                    'sheets_to_cut': int(cascade_df['Sheets_to_Cut'].sum()),
+                    'sheets_to_save': int(cascade_df['Sheets_to_Save'].sum())
+                }
+    except Exception as e:
+        print(f"Cascade check warning: {e}")
+
     conn.close()
 
     # Get summary stats
@@ -229,7 +268,9 @@ def download_page(session_id):
     return render_template('reorder_download.html',
                           session=session,
                           stats=stats,
-                          preview=preview)
+                          preview=preview,
+                          cascade_available=cascade_available,
+                          cascade_stats=cascade_stats)
 
 
 @reports_bp.route('/reorder-calculator/export/<session_id>')
@@ -260,6 +301,44 @@ def export_csv(session_id):
         csv_data,
         mimetype='text/csv',
         headers={"Content-disposition": f"attachment; filename=reorder_calculation_{session_id}.csv"}
+    )
+
+
+@reports_bp.route('/reorder-calculator/export-cascade/<session_id>')
+def export_cascade_csv(session_id):
+    """Export cascade analysis report as CSV"""
+    session = get_session(session_id)
+    if not session:
+        return "Session not found", 404
+
+    # Load cascade data from SQLite
+    temp_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'temp_sessions')
+    db_path = os.path.join(temp_dir, f'{session_id}.db')
+
+    if not os.path.exists(db_path):
+        return "Session data not found", 404
+
+    conn = sqlite3.connect(db_path)
+
+    # Check if cascade_report table exists
+    cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='cascade_report'")
+    if not cursor.fetchone():
+        conn.close()
+        return "Cascade report not available for this session", 404
+
+    df = pd.read_sql("SELECT * FROM cascade_report", conn)
+    conn.close()
+
+    if df.empty:
+        return "No cascade data available", 404
+
+    # Generate CSV
+    csv_data = df.to_csv(index=False)
+
+    return Response(
+        csv_data,
+        mimetype='text/csv',
+        headers={"Content-disposition": f"attachment; filename=cascade_report_{session_id}.csv"}
     )
 
 

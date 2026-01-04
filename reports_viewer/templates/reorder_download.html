@@ -209,6 +209,59 @@
             </a>
         </div>
 
+        {% if cascade_available %}
+        <div class="cascade-section" style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 30px;">
+            <h3 style="color: #333; margin-bottom: 20px;">🔄 Cascade Analysis Report (Bullseye)</h3>
+
+            <div class="alert-info" style="background: #fff3e0; border-left: 4px solid #ff9800; margin-bottom: 20px;">
+                <strong>5-Step Cascade Algorithm Applied</strong><br>
+                Products grouped by family. Cascade logic optimizes ordering by using excess inventory and cutting larger sheets.
+            </div>
+
+            <div class="stats-grid" style="margin-bottom: 20px;">
+                <div class="stat-card" style="background: #f5f5f5;">
+                    <div class="stat-value" style="color: #ff5722;">{{ cascade_stats.total_families }}</div>
+                    <div class="stat-label">Product Families</div>
+                </div>
+                <div class="stat-card" style="background: #f5f5f5;">
+                    <div class="stat-value" style="color: #f44336;">{{ cascade_stats.urgent_count }}</div>
+                    <div class="stat-label">Urgent</div>
+                </div>
+                <div class="stat-card" style="background: #f5f5f5;">
+                    <div class="stat-value" style="color: #ff9800;">{{ cascade_stats.reorder_count }}</div>
+                    <div class="stat-label">Reorder</div>
+                </div>
+                <div class="stat-card" style="background: #f5f5f5;">
+                    <div class="stat-value" style="color: #2196f3;">{{ cascade_stats.watch_count }}</div>
+                    <div class="stat-label">Watch</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; text-align: center;">
+                <div style="background: #e8f5e9; padding: 15px; border-radius: 8px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #4caf50;">{{ cascade_stats.total_sheets }}</div>
+                    <div style="font-size: 12px; color: #666;">Total Sheets to Order</div>
+                </div>
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #2196f3;">{{ cascade_stats.sheets_to_cut }}</div>
+                    <div style="font-size: 12px; color: #666;">Sheets to Cut</div>
+                </div>
+                <div style="background: #fff3e0; padding: 15px; border-radius: 8px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #ff9800;">{{ cascade_stats.sheets_to_save }}</div>
+                    <div style="font-size: 12px; color: #666;">Sheets to Save (as Half)</div>
+                </div>
+            </div>
+
+            <a href="/reports/reorder-calculator/export-cascade/{{ session.session_id }}" class="btn-download" style="background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);">
+                📊 Download Cascade Report CSV
+            </a>
+
+            <p style="margin-top: 15px; font-size: 13px; color: #666; text-align: center;">
+                Includes: Before/After inventory, cascade steps, order decisions, and validation for each product family
+            </p>
+        </div>
+        {% endif %}
+
         <div class="preview-section">
             <h3>📋 Preview: Products Needing Reorder (First 20)</h3>
 
