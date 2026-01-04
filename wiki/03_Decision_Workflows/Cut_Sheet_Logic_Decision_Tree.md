@@ -20,7 +20,10 @@ This workflow determines the most efficient cutting strategy when a size is belo
 
 ```mermaid
 graph TD
-    A[Size Below Target YIS] --> B{Check Available<br/>Source Sizes}
+    A[Size Below Target YIS] --> A1{Is Quantity<br/>≥ 75,000?}
+
+    A1 -->|Yes| A2[SKIP: Parent Product<br/>NOT Orderable<br/>Reorder_qty = 0]
+    A1 -->|No| B{Check Available<br/>Source Sizes}
 
     B -->|Oceanside| C{24×24 Available<br/>& Above Min?}
     B -->|Bullseye| D{Full Sheet Available<br/>& Above Min?}
@@ -79,6 +82,7 @@ graph TD
     AC --> AE[Excel + PDF Output]
     AD --> AE
 
+    style A2 fill:#FFB6C1
     style Y fill:#90EE90
     style L fill:#FFB6C1
     style U fill:#FFD700
@@ -203,6 +207,9 @@ Target YIS After = 114 ÷ (326 ÷ 12) = 114 ÷ 27.2 = 4.19 months ≈ 0.35 years
 
 Before generating cut instruction:
 
+0. **Parent Product Check (DO THIS FIRST!):**
+   - [ ] **Quantity < 75,000** (if ≥ 75,000 → SKIP, not orderable)
+
 1. **Source Check:**
    - [ ] Source size quantity ≥ sheets required
    - [ ] Source YIS after cut ≥ minimum threshold
@@ -223,9 +230,19 @@ Before generating cut instruction:
    - [ ] Kerf loss accounted for (~5-10%)
    - [ ] Pieces produced = Sheets × Yield
 
+### Parent Product Filter (CRITICAL - Check First!)
+
+| Condition | Action | Reason |
+|-----------|--------|--------|
+| **Quantity ≥ 75,000** | SKIP - Set Reorder_qty = 0 | Parent product (not directly orderable) |
+| **Quantity < 75,000** | Proceed with decision tree | Regular product |
+
+**Why this matters:** Products with qty ≥ 75,000 are "parent" or umbrella products that represent a family of sizes. They are never ordered directly - only their child variants (specific sizes) are orderable.
+
 ### Critical Errors to Prevent
 
 **❌ DON'T:**
+- Process products with qty ≥ 75,000 (parent products - not orderable!)
 - Cut Bullseye Full Sheet to zero (needed for cascade)
 - Cut Bullseye Half Sheet below 0.40 YIS (higher threshold)
 - Cut source size when already at/below minimum

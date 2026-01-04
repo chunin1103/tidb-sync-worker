@@ -19,7 +19,10 @@ Before placing any vendor order, this decision tree evaluates:
 
 ```mermaid
 graph TD
-    A[Product needs stock:<br/>YIS below threshold] --> B{What is minimum<br/>YIS threshold?}
+    A[Product needs stock:<br/>YIS below threshold] --> A1{Is Quantity<br/>≥ 75,000?}
+
+    A1 -->|Yes| A2[SKIP: Parent Product<br/>NOT Orderable<br/>Reorder_qty = 0]
+    A1 -->|No| B{What is minimum<br/>YIS threshold?}
 
     B -->|Oceanside: 0.35yr| C[Target: 0.35 years]
     B -->|Bullseye: 0.25yr| D[Target: 0.40 years]
@@ -76,6 +79,13 @@ graph TD
 
     AF --> AG[End: Execute]
     AE --> I
+
+    style A2 fill:#FFB6C1
+    style H fill:#FFB6C1
+    style AB fill:#FFD700
+    style P fill:#90EE90
+    style AD fill:#90EE90
+    style AG fill:#87CEEB
 ```
 
 ---
