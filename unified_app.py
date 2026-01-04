@@ -762,10 +762,15 @@ def view_report(report_path):
                 db_report = None
                 if db:
                     try:
+                        # Search by file_path which contains the filename
                         db_report = db.query(ClaudeReport).filter(
-                            ClaudeReport.agent_type == agent_type,
-                            ClaudeReport.report_title.like(f'%{report_title}%')
+                            ClaudeReport.file_path.like(f'%{filename}%')
                         ).first()
+                        # Fallback: search by agent_type
+                        if not db_report:
+                            db_report = db.query(ClaudeReport).filter(
+                                ClaudeReport.agent_type == agent_type
+                            ).order_by(ClaudeReport.created_at.desc()).first()
                     finally:
                         db.close()
 
