@@ -42,7 +42,7 @@ import os
 import sys
 import logging
 from pathlib import Path
-from flask import Flask, jsonify
+from flask import Flask, jsonify, render_template, request
 from dotenv import load_dotenv
 
 # Load environment variables from agent_garden/.env
@@ -691,12 +691,30 @@ def favicon():
 
 
 # =============================================================================
-# ROOT ENDPOINT (Unified Health Check)
+# ROOT ENDPOINT (Home Page + Health Check)
 # =============================================================================
 
 @app.route('/')
-def unified_health():
-    """Unified health check endpoint."""
+def home():
+    """Home page with navigation dashboard.
+    Returns JSON health check if ?format=json or Accept: application/json
+    """
+    # Check if JSON response is requested
+    wants_json = (
+        request.args.get('format') == 'json' or
+        request.accept_mimetypes.best == 'application/json'
+    )
+
+    if wants_json:
+        return health_check_json()
+
+    # Return HTML home page
+    return render_template('home.html')
+
+
+@app.route('/health')
+def health_check_json():
+    """JSON health check endpoint."""
     services = {
         'tidb_mcp': False,
         'agent_garden': False,
@@ -738,8 +756,9 @@ def unified_health():
         'service': 'unified-tidb-agent-garden',
         'services': services,
         'endpoints': {
+            'home': '/',
+            'health': '/health',
             'tidb_mcp': {
-                'health': '/',
                 'mcp': '/mcp',
                 'tools': '/tools',
                 'query': '/query'
@@ -768,6 +787,10 @@ def unified_health():
                 'view': '/wiki/view/<path>',
                 'admin': '/wiki/admin',
                 'api_mappings': '/wiki/api/mappings/<path>'
+            },
+            'reorder_calculator': {
+                'upload': '/reports/reorder-calculator',
+                'questions': '/reports/reorder-calculator/questions'
             }
         }
     })

@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Download Results - Reorder Calculator</title>
+    <title>Download Results - Reorder Calculator | Claude Tools</title>
+
+    <!-- Global Navigation Styles -->
+    <link rel="stylesheet" href="/static/global.css">
+
     <style>
         * {
             margin: 0;
@@ -13,6 +17,8 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: #f5f7fa;
+        }
+        .page-content {
             padding: 20px;
         }
         .container {
@@ -170,9 +176,48 @@
     </style>
 </head>
 <body>
+    <!-- Global Navigation -->
+    <nav class="global-nav">
+        <div class="global-nav-container">
+            <a href="/" class="global-nav-brand">
+                <span class="global-nav-brand-icon">&#128736;</span>
+                <span>Claude Tools</span>
+            </a>
+            <button class="global-nav-mobile-toggle" onclick="toggleMobileNav()">&#9776;</button>
+            <div class="global-nav-links" id="navLinks">
+                <a href="/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#127968;</span>
+                    Home
+                </a>
+                <a href="/wiki/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128214;</span>
+                    Wiki
+                </a>
+                <a href="/reports/reorder-calculator" class="global-nav-link active">
+                    <span class="global-nav-link-icon">&#128202;</span>
+                    Reorder Calculator
+                </a>
+                <a href="/AgentGarden/tasks/list" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128221;</span>
+                    Task Queue
+                </a>
+                <a href="/status" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128260;</span>
+                    Sync Status
+                </a>
+            </div>
+        </div>
+    </nav>
+    <script>
+        function toggleMobileNav() {
+            document.getElementById('navLinks').classList.toggle('show');
+        }
+    </script>
+
+    <div class="page-content">
     <div class="container">
         <div class="header">
-            <h1>✅ Calculation Complete!</h1>
+            <h1>&#9989; Calculation Complete!</h1>
             <div class="session-info">
                 <strong>Session:</strong> {{ session.csv_filename }}<br>
                 <strong>Manufacturer:</strong> {{ session.manufacturer }}
@@ -303,7 +348,7 @@
         </div>
 
         <div class="next-steps">
-            <h3>📝 Next Steps</h3>
+            <h3>&#128221; Next Steps</h3>
             <ol>
                 <li><strong>Download the CSV</strong> using the button above</li>
                 <li><strong>Review the calculations</strong> - check the <code>Reorder_Quantity</code> column</li>
@@ -312,6 +357,7 @@
                 <li><strong>Optional:</strong> Re-upload the edited CSV to track your manual changes for future improvements</li>
             </ol>
         </div>
+    </div>
     </div>
 </body>
 </html>

@@ -1,0 +1,161 @@
+/**
+ * Global Styles - Claude Tools Navigation
+ * Unified navigation header across all pages
+ */
+
+/* =============================================================================
+   GLOBAL NAV HEADER
+   ============================================================================= */
+
+.global-nav {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.global-nav-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+}
+
+.global-nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    font-size: 18px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.global-nav-brand:hover {
+    opacity: 0.9;
+    text-decoration: none;
+    color: #fff;
+}
+
+.global-nav-brand-icon {
+    font-size: 24px;
+}
+
+.global-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.global-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.global-nav-link:hover {
+    background: rgba(255,255,255,0.1);
+    color: #fff;
+    text-decoration: none;
+}
+
+.global-nav-link.active {
+    background: rgba(102, 126, 234, 0.3);
+    color: #fff;
+}
+
+.global-nav-link-icon {
+    font-size: 16px;
+}
+
+/* Mobile menu button */
+.global-nav-mobile-toggle {
+    display: none;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+}
+
+/* =============================================================================
+   RESPONSIVE NAV
+   ============================================================================= */
+
+@media (max-width: 900px) {
+    .global-nav-mobile-toggle {
+        display: block;
+    }
+
+    .global-nav-links {
+        position: absolute;
+        top: 60px;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        flex-direction: column;
+        padding: 10px 20px 20px;
+        gap: 0;
+        display: none;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .global-nav-links.show {
+        display: flex;
+    }
+
+    .global-nav-link {
+        width: 100%;
+        padding: 12px 16px;
+        border-radius: 0;
+        border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .global-nav-link:last-child {
+        border-bottom: none;
+    }
+}
+
+/* =============================================================================
+   PAGE WRAPPER (for pages using global nav)
+   ============================================================================= */
+
+.page-wrapper {
+    min-height: calc(100vh - 60px);
+}
+
+/* =============================================================================
+   GLOBAL FOOTER
+   ============================================================================= */
+
+.global-footer {
+    background: #1a1a2e;
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    padding: 20px;
+    font-size: 13px;
+}
+
+.global-footer a {
+    color: rgba(255,255,255,0.8);
+    text-decoration: none;
+}
+
+.global-footer a:hover {
+    color: #fff;
+    text-decoration: underline;
+}

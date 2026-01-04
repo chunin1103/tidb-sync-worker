@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reorder Calculator - Upload CSV</title>
+    <title>Reorder Calculator - Upload CSV | Claude Tools</title>
+
+    <!-- Global Navigation Styles -->
+    <link rel="stylesheet" href="/static/global.css">
+
     <style>
         * {
             margin: 0;
@@ -14,10 +18,13 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
+        }
+        .page-content {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 40px 20px;
+            min-height: calc(100vh - 60px);
         }
         .container {
             background: white;
@@ -204,6 +211,45 @@
     </style>
 </head>
 <body>
+    <!-- Global Navigation -->
+    <nav class="global-nav">
+        <div class="global-nav-container">
+            <a href="/" class="global-nav-brand">
+                <span class="global-nav-brand-icon">&#128736;</span>
+                <span>Claude Tools</span>
+            </a>
+            <button class="global-nav-mobile-toggle" onclick="toggleMobileNav()">&#9776;</button>
+            <div class="global-nav-links" id="navLinks">
+                <a href="/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#127968;</span>
+                    Home
+                </a>
+                <a href="/wiki/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128214;</span>
+                    Wiki
+                </a>
+                <a href="/reports/reorder-calculator" class="global-nav-link active">
+                    <span class="global-nav-link-icon">&#128202;</span>
+                    Reorder Calculator
+                </a>
+                <a href="/AgentGarden/tasks/list" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128221;</span>
+                    Task Queue
+                </a>
+                <a href="/status" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128260;</span>
+                    Sync Status
+                </a>
+            </div>
+        </div>
+    </nav>
+    <script>
+        function toggleMobileNav() {
+            document.getElementById('navLinks').classList.toggle('show');
+        }
+    </script>
+
+    <div class="page-content">
     <div class="container">
         <h1>📊 Reorder Calculator</h1>
         <p class="subtitle">Upload your inventory CSV to calculate reorder quantities</p>
@@ -256,6 +302,7 @@
             <div class="spinner"></div>
             <p>Processing CSV... This may take a minute for large files.</p>
         </div>
+    </div>
     </div>
 
     <script>

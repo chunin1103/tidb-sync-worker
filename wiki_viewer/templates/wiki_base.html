@@ -5,7 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Production Wiki{% endblock %} | Claude Tools</title>
 
-    <!-- Styles -->
+    <!-- Global Navigation Styles -->
+    <link rel="stylesheet" href="/static/global.css">
+
+    <!-- Wiki-specific Styles -->
     <link rel="stylesheet" href="{{ url_for('wiki.static', filename='wiki.css') }}">
 
     <!-- Mermaid.js (CDN) -->
@@ -14,20 +17,52 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <!-- Navigation Header -->
+    <!-- Global Navigation -->
+    <nav class="global-nav">
+        <div class="global-nav-container">
+            <a href="/" class="global-nav-brand">
+                <span class="global-nav-brand-icon">&#128736;</span>
+                <span>Claude Tools</span>
+            </a>
+            <button class="global-nav-mobile-toggle" onclick="toggleMobileNav()">&#9776;</button>
+            <div class="global-nav-links" id="navLinks">
+                <a href="/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#127968;</span>
+                    Home
+                </a>
+                <a href="/wiki/" class="global-nav-link {% if request.path == '/wiki/' or '/wiki/' in request.path %}active{% endif %}">
+                    <span class="global-nav-link-icon">&#128214;</span>
+                    Wiki
+                </a>
+                <a href="/reports/reorder-calculator" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128202;</span>
+                    Reorder Calculator
+                </a>
+                <a href="/AgentGarden/tasks/list" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128221;</span>
+                    Task Queue
+                </a>
+                <a href="/status" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128260;</span>
+                    Sync Status
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Wiki Sub-Navigation -->
     <header class="wiki-header">
         <div class="wiki-nav">
-            <a href="/" class="nav-logo">🏠 Claude Tools</a>
-            <span class="nav-separator">|</span>
             <a href="/wiki/" class="nav-link {% if request.path == '/wiki/' %}active{% endif %}">Wiki Home</a>
             <a href="/wiki/browse" class="nav-link {% if '/browse' in request.path %}active{% endif %}">Browse Files</a>
-            <a href="/wiki/decision-tree/" class="nav-link {% if '/decision-tree' in request.path %}active{% endif %}">Decision Tree</a>
             <a href="/wiki/admin" class="nav-link {% if '/admin' in request.path %}active{% endif %}">Admin Guide</a>
-            <span class="nav-separator">|</span>
-            <a href="/AgentGarden/" class="nav-link">Agent Garden</a>
-            <a href="/status" class="nav-link">Sync Status</a>
         </div>
     </header>
+    <script>
+        function toggleMobileNav() {
+            document.getElementById('navLinks').classList.toggle('show');
+        }
+    </script>
 
     <!-- Main Content Area -->
     <main class="wiki-main">

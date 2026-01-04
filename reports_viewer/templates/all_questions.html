@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>All Questions - Reorder Calculator</title>
+    <title>All Questions - Reorder Calculator | Claude Tools</title>
+
+    <!-- Global Navigation Styles -->
+    <link rel="stylesheet" href="/static/global.css">
+
     <style>
         * {
             margin: 0;
@@ -14,8 +18,10 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 30px 20px;
             line-height: 1.6;
+        }
+        .page-content {
+            padding: 30px 20px;
         }
         .container {
             max-width: 1200px;
@@ -457,9 +463,48 @@
     </style>
 </head>
 <body>
+    <!-- Global Navigation -->
+    <nav class="global-nav">
+        <div class="global-nav-container">
+            <a href="/" class="global-nav-brand">
+                <span class="global-nav-brand-icon">&#128736;</span>
+                <span>Claude Tools</span>
+            </a>
+            <button class="global-nav-mobile-toggle" onclick="toggleMobileNav()">&#9776;</button>
+            <div class="global-nav-links" id="navLinks">
+                <a href="/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#127968;</span>
+                    Home
+                </a>
+                <a href="/wiki/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128214;</span>
+                    Wiki
+                </a>
+                <a href="/reports/reorder-calculator" class="global-nav-link active">
+                    <span class="global-nav-link-icon">&#128202;</span>
+                    Reorder Calculator
+                </a>
+                <a href="/AgentGarden/tasks/list" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128221;</span>
+                    Task Queue
+                </a>
+                <a href="/status" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128260;</span>
+                    Sync Status
+                </a>
+            </div>
+        </div>
+    </nav>
+    <script>
+        function toggleMobileNav() {
+            document.getElementById('navLinks').classList.toggle('show');
+        }
+    </script>
+
+    <div class="page-content">
     <div class="container">
         <div class="header">
-            <h1>📋 Questions Dashboard</h1>
+            <h1>&#128203; Questions Dashboard</h1>
             <p class="subtitle">View and answer all reorder calculation questions</p>
         </div>
 
@@ -584,6 +629,7 @@
             <p>Try adjusting your filters or upload a CSV to generate questions.</p>
         </div>
         {% endif %}
+    </div>
     </div>
 
     <script>

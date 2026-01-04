@@ -3,7 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clarification Questions - Reorder Calculator</title>
+    <title>Clarification Questions - Reorder Calculator | Claude Tools</title>
+
+    <!-- Global Navigation Styles -->
+    <link rel="stylesheet" href="/static/global.css">
+
     <style>
         * {
             margin: 0;
@@ -13,6 +17,8 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background: #f5f7fa;
+        }
+        .page-content {
             padding: 20px;
         }
         .container {
@@ -192,9 +198,48 @@
     </style>
 </head>
 <body>
+    <!-- Global Navigation -->
+    <nav class="global-nav">
+        <div class="global-nav-container">
+            <a href="/" class="global-nav-brand">
+                <span class="global-nav-brand-icon">&#128736;</span>
+                <span>Claude Tools</span>
+            </a>
+            <button class="global-nav-mobile-toggle" onclick="toggleMobileNav()">&#9776;</button>
+            <div class="global-nav-links" id="navLinks">
+                <a href="/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#127968;</span>
+                    Home
+                </a>
+                <a href="/wiki/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128214;</span>
+                    Wiki
+                </a>
+                <a href="/reports/reorder-calculator" class="global-nav-link active">
+                    <span class="global-nav-link-icon">&#128202;</span>
+                    Reorder Calculator
+                </a>
+                <a href="/AgentGarden/tasks/list" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128221;</span>
+                    Task Queue
+                </a>
+                <a href="/status" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128260;</span>
+                    Sync Status
+                </a>
+            </div>
+        </div>
+    </nav>
+    <script>
+        function toggleMobileNav() {
+            document.getElementById('navLinks').classList.toggle('show');
+        }
+    </script>
+
+    <div class="page-content">
     <div class="container">
         <div class="header">
-            <h1>🤔 Clarification Needed</h1>
+            <h1>&#129300; Clarification Needed</h1>
             <div class="session-info">
                 <strong>Session:</strong> {{ session.csv_filename }}<br>
                 <strong>Total Products:</strong> {{ session.total_products }}<br>
@@ -240,6 +285,7 @@
                 <button type="submit" class="btn-submit">Submit Answers & Continue</button>
             </div>
         </form>
+    </div>
     </div>
 </body>
 </html>

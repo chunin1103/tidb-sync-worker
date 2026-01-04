@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Tools | Home</title>
+    <link rel="stylesheet" href="/static/global.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            padding: 80px 20px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 48px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        .hero p {
+            font-size: 20px;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .dashboard {
+            max-width: 1200px;
+            margin: -40px auto 40px;
+            padding: 0 20px;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 28px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+            text-decoration: none;
+            color: inherit;
+            display: block;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+            text-decoration: none;
+        }
+
+        .card-icon {
+            font-size: 40px;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #1a1a2e;
+        }
+
+        .card-desc {
+            font-size: 14px;
+            color: #666;
+            line-height: 1.5;
+            margin-bottom: 16px;
+        }
+
+        .card-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: #667eea;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .card-link:hover {
+            text-decoration: underline;
+        }
+
+        .status-section {
+            max-width: 1200px;
+            margin: 0 auto 60px;
+            padding: 0 20px;
+        }
+
+        .status-section h2 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #1a1a2e;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .status-item {
+            background: #fff;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+
+        .status-label {
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .status-value {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .status-value.healthy {
+            color: #22c55e;
+        }
+
+        .status-value.error {
+            color: #ef4444;
+        }
+
+        .quick-links {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            max-width: 1200px;
+            margin: 0 auto 60px;
+        }
+
+        .quick-links h2 {
+            font-size: 20px;
+            margin-bottom: 16px;
+            color: #1a1a2e;
+        }
+
+        .quick-links-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .quick-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: #f5f7fa;
+            border-radius: 6px;
+            color: #333;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .quick-link:hover {
+            background: #e8ebf0;
+            text-decoration: none;
+        }
+
+        @media (max-width: 600px) {
+            .hero h1 {
+                font-size: 32px;
+            }
+
+            .hero p {
+                font-size: 16px;
+            }
+
+            .cards-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Global Navigation -->
+    <nav class="global-nav">
+        <div class="global-nav-container">
+            <a href="/" class="global-nav-brand">
+                <span class="global-nav-brand-icon">&#128736;</span>
+                <span>Claude Tools</span>
+            </a>
+            <button class="global-nav-mobile-toggle" onclick="toggleMobileNav()">&#9776;</button>
+            <div class="global-nav-links" id="navLinks">
+                <a href="/" class="global-nav-link active">
+                    <span class="global-nav-link-icon">&#127968;</span>
+                    Home
+                </a>
+                <a href="/wiki/" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128214;</span>
+                    Wiki
+                </a>
+                <a href="/reports/reorder-calculator" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128202;</span>
+                    Reorder Calculator
+                </a>
+                <a href="/AgentGarden/tasks/list" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128221;</span>
+                    Task Queue
+                </a>
+                <a href="/status" class="global-nav-link">
+                    <span class="global-nav-link-icon">&#128260;</span>
+                    Sync Status
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <h1>Claude Tools</h1>
+        <p>Business automation, documentation, and data management for Art Glass Supplies</p>
+    </section>
+
+    <!-- Main Dashboard -->
+    <main class="dashboard">
+        <div class="cards-grid">
+            <a href="/wiki/" class="card">
+                <div class="card-icon">&#128214;</div>
+                <div class="card-title">Wiki Documentation</div>
+                <div class="card-desc">Browse business logic, decision trees, and workflow documentation. Single source of truth for all processes.</div>
+                <span class="card-link">View Documentation &rarr;</span>
+            </a>
+
+            <a href="/reports/reorder-calculator" class="card">
+                <div class="card-icon">&#128202;</div>
+                <div class="card-title">Reorder Calculator</div>
+                <div class="card-desc">Upload inventory CSV files to calculate optimal reorder quantities for Oceanside, Bullseye, and more.</div>
+                <span class="card-link">Calculate Reorders &rarr;</span>
+            </a>
+
+            <a href="/AgentGarden/tasks/list" class="card">
+                <div class="card-icon">&#128221;</div>
+                <div class="card-title">Task Queue</div>
+                <div class="card-desc">View and manage tasks in the Gemini → Claude integration pipeline. Monitor pending and completed work.</div>
+                <span class="card-link">View Tasks &rarr;</span>
+            </a>
+
+            <a href="/status" class="card">
+                <div class="card-icon">&#128260;</div>
+                <div class="card-title">Sync Status</div>
+                <div class="card-desc">Monitor MySQL → TiDB synchronization status, scheduled jobs, and trigger manual syncs.</div>
+                <span class="card-link">View Status &rarr;</span>
+            </a>
+        </div>
+    </main>
+
+    <!-- Quick Links -->
+    <section class="status-section">
+        <div class="quick-links">
+            <h2>Quick Links</h2>
+            <div class="quick-links-grid">
+                <a href="/wiki/browse" class="quick-link">&#128193; Browse Wiki Files</a>
+                <a href="/reports/reorder-calculator/questions" class="quick-link">&#10067; Pending Questions</a>
+                <a href="/status/json" class="quick-link">&#128196; Status JSON</a>
+                <a href="/AgentGarden/" class="quick-link">&#127793; Agent Garden</a>
+                <a href="/mcp" class="quick-link">&#128268; MCP Endpoint</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="global-footer">
+        <p>Claude Tools &bull; Powered by Flask + TiDB &bull; <a href="https://github.com/anthropics/claude-code">Claude Code</a></p>
+    </footer>
+
+    <script>
+        function toggleMobileNav() {
+            document.getElementById('navLinks').classList.toggle('show');
+        }
+    </script>
+</body>
+</html>
