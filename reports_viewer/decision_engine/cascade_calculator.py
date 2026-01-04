@@ -284,31 +284,33 @@ def calculate_order_with_cascade(inv_data: Dict, thickness: str) -> Tuple[int, i
         if deficits['Half'] > 0:
             sheets_to_save = math.ceil(deficits['Half'] / 2)
 
-        # Calculate Full Sheets to cut for 10x10 deficit
+        # Calculate Full Sheets to cut for 10x10 and 5x10 deficits
         # 1 Full Sheet -> 6x 10x10 + 2x 5x10
-        if deficits['10x10'] > 0:
-            sheets_to_cut = math.ceil(deficits['10x10'] / 6)
-
-        # Check if 5x10 needs more sheets (each Full Sheet gives 2x 5x10)
-        five10_from_cuts = sheets_to_cut * 2
-        remaining_five10_deficit = max(0, deficits['5x10'] - five10_from_cuts)
-        if remaining_five10_deficit > 0:
-            extra_for_five10 = math.ceil(remaining_five10_deficit / 2)
-            if extra_for_five10 > sheets_to_cut:
-                sheets_to_cut = extra_for_five10
+        # Each sheet covers both, so take max of what each size needs
+        sheets_for_ten = math.ceil(deficits['10x10'] / 6) if deficits['10x10'] > 0 else 0
+        sheets_for_five10 = math.ceil(deficits['5x10'] / 2) if deficits['5x10'] > 0 else 0
+        sheets_to_cut = max(sheets_for_ten, sheets_for_five10)
 
         # Check if 5x5 needs more sheets (5x5 comes from cascading 10x10 or 5x10)
-        # After cutting: we'll have (sheets_to_cut * 6) 10x10 and (sheets_to_cut * 2) 5x10
-        # 10x10 surplus after covering 10x10 deficit can cascade to 5x5 (1:4 ratio)
-        # 5x10 surplus after covering 5x10 deficit can cascade to 5x5 (1:2 ratio)
+        # IMPORTANT: Must simulate Step 4 cascade ORDER - 10x10->5x10 happens BEFORE 10x10->5x5
+        # So we can't assume all 10x10 surplus goes to 5x5
         projected_ten = working_stock['10x10'] + sheets_to_cut * 6
         projected_five10 = working_stock['5x10'] + sheets_to_cut * 2
-        ten_surplus_projected = max(0, projected_ten - min_040['10x10'])
-        five10_surplus_projected = max(0, projected_five10 - min_040['5x10'])
 
-        # How much 5x5 can we get from surplus cascade?
-        five5_from_ten_cascade = ten_surplus_projected * 4
-        five5_from_five10_cascade = five10_surplus_projected * 2
+        # Step 4 simulates: first cascade 10x10 -> 5x10 if needed
+        five10_deficit_proj = max(0, min_040['5x10'] - projected_five10)
+        ten_surplus_proj = max(0, projected_ten - min_040['10x10'])
+        ten_used_for_five10 = min(ten_surplus_proj, math.ceil(five10_deficit_proj / 2)) if five10_deficit_proj > 0 else 0
+        projected_ten -= ten_used_for_five10
+        projected_five10 += ten_used_for_five10 * 2
+
+        # Now calculate REMAINING surplus for 5x5 (after 10x10->5x10 cascade)
+        ten_surplus_for_five5 = max(0, projected_ten - min_040['10x10'])
+        five10_surplus_for_five5 = max(0, projected_five10 - min_040['5x10'])
+
+        # How much 5x5 can we get from remaining surplus cascade?
+        five5_from_ten_cascade = ten_surplus_for_five5 * 4
+        five5_from_five10_cascade = five10_surplus_for_five5 * 2
         projected_five5 = working_stock['5x5'] + five5_from_ten_cascade + five5_from_five10_cascade
 
         # If still not enough 5x5, order more Full Sheets to cascade
@@ -378,26 +380,30 @@ def calculate_order_with_cascade(inv_data: Dict, thickness: str) -> Tuple[int, i
 
         # Calculate Half Sheets to cut for 10x10/5x10 deficit
         # 1 Half Sheet (2mm) -> 2x 10x10 + 2x 5x10
-        if deficits['10x10'] > 0:
-            sheets_to_cut = math.ceil(deficits['10x10'] / 2)
-
-        five10_from_cuts = sheets_to_cut * 2
-        remaining_five10_deficit = max(0, deficits['5x10'] - five10_from_cuts)
-        if remaining_five10_deficit > 0:
-            extra = math.ceil(remaining_five10_deficit / 2)
-            if extra > sheets_to_cut:
-                sheets_to_cut = extra
+        # Each sheet covers both, so take max of what each size needs
+        sheets_for_ten = math.ceil(deficits['10x10'] / 2) if deficits['10x10'] > 0 else 0
+        sheets_for_five10 = math.ceil(deficits['5x10'] / 2) if deficits['5x10'] > 0 else 0
+        sheets_to_cut = max(sheets_for_ten, sheets_for_five10)
 
         # Check if 5x5 needs more sheets (5x5 comes from cascading 10x10)
-        # After cutting: we'll have (sheets_to_cut * 2) 10x10 and (sheets_to_cut * 2) 5x10
+        # IMPORTANT: Must simulate Step 4 cascade ORDER - 10x10->5x10 happens BEFORE 10x10->5x5
         projected_ten = working_stock['10x10'] + sheets_to_cut * 2
         projected_five10 = working_stock['5x10'] + sheets_to_cut * 2
-        ten_surplus_projected = max(0, projected_ten - min_040['10x10'])
-        five10_surplus_projected = max(0, projected_five10 - min_040['5x10'])
 
-        # How much 5x5 can we get from surplus cascade?
-        five5_from_ten_cascade = ten_surplus_projected * 4
-        five5_from_five10_cascade = five10_surplus_projected * 2
+        # Step 4 simulates: first cascade 10x10 -> 5x10 if needed
+        five10_deficit_proj = max(0, min_040['5x10'] - projected_five10)
+        ten_surplus_proj = max(0, projected_ten - min_040['10x10'])
+        ten_used_for_five10 = min(ten_surplus_proj, math.ceil(five10_deficit_proj / 2)) if five10_deficit_proj > 0 else 0
+        projected_ten -= ten_used_for_five10
+        projected_five10 += ten_used_for_five10 * 2
+
+        # Now calculate REMAINING surplus for 5x5 (after 10x10->5x10 cascade)
+        ten_surplus_for_five5 = max(0, projected_ten - min_040['10x10'])
+        five10_surplus_for_five5 = max(0, projected_five10 - min_040['5x10'])
+
+        # How much 5x5 can we get from remaining surplus cascade?
+        five5_from_ten_cascade = ten_surplus_for_five5 * 4
+        five5_from_five10_cascade = five10_surplus_for_five5 * 2
         projected_five5 = working_stock['5x5'] + five5_from_ten_cascade + five5_from_five10_cascade
 
         # If still not enough 5x5, order more Half Sheets to cascade
