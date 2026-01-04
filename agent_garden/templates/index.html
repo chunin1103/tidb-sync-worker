@@ -2264,6 +2264,29 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
                             <button class="btn" onclick="copyFilePath('${data.local_path}')">📁 Copy Path</button>
                             <button class="btn" onclick="openInFinder('${data.local_path}')">🗂️ Reveal in Finder</button>
                         `;
+                    } else if (data.error === 'local_file_only') {
+                        // File only available on local OneDrive
+                        content.innerHTML = `
+                            <div style="text-align: center; padding: 1.5rem;">
+                                <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+                                <div style="font-size: 1.1rem; font-weight: 600; color: #f59e0b; margin-bottom: 0.5rem;">CSV File on OneDrive</div>
+                                <div style="color: #94a3b8; font-size: 13px; margin-bottom: 1rem;">${data.message}</div>
+                            </div>
+                            <div style="background: #1e293b; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                                <div style="color: #94a3b8; font-size: 12px; margin-bottom: 0.5rem;">📁 File Location (click to copy):</div>
+                                <code onclick="copyToClipboard('${data.expected_path}')" style="cursor: pointer; display: block; padding: 0.5rem; background: #0f172a; border-radius: 4px; font-size: 11px; color: #60a5fa; word-break: break-all;">${data.expected_path}</code>
+                            </div>
+                            ${data.summary ? `
+                            <div style="background: #0f172a; padding: 1rem; border-radius: 8px; border: 1px solid #30363d;">
+                                <div style="color: #22c55e; font-size: 12px; font-weight: 600; margin-bottom: 0.5rem;">📋 Report Summary:</div>
+                                <div style="color: #c9d1d9; font-size: 12px; white-space: pre-wrap; max-height: 300px; overflow-y: auto;">${escapeHtml(data.summary)}</div>
+                            </div>
+                            ` : ''}
+                        `;
+                        buttons.innerHTML = `
+                            <button class="btn btn-primary" onclick="copyFilePath('${data.expected_path}')">📁 Copy Path</button>
+                            <button class="btn" onclick="closeReportPreviewModal()">Close</button>
+                        `;
                     } else {
                         content.innerHTML = `<div style="color: #ef4444; padding: 2rem; text-align: center;">Error: ${data.error || 'Failed to load preview'}</div>`;
                     }

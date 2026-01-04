@@ -755,6 +755,31 @@ def view_report(report_path):
                     db.close()
 
         if not local_file:
+            # File not found locally - check if it's a non-md file stored on user's OneDrive
+            if ext in ['csv', 'xlsx', 'xls', 'json']:
+                # For data files, return info about where to find them
+                db = get_db()
+                db_report = None
+                if db:
+                    try:
+                        db_report = db.query(ClaudeReport).filter(
+                            ClaudeReport.agent_type == agent_type,
+                            ClaudeReport.report_title.like(f'%{report_title}%')
+                        ).first()
+                    finally:
+                        db.close()
+
+                return jsonify({
+                    'success': False,
+                    'error': 'local_file_only',
+                    'message': f'This {ext.upper()} file is stored on your local OneDrive and cannot be previewed from the cloud.',
+                    'filename': filename,
+                    'agent_type': agent_type,
+                    'expected_path': f'~/Library/CloudStorage/OneDrive-Personal/Claude Tools/Reports/{agent_type}/{filename}',
+                    'summary': db_report.report_content if db_report else None,
+                    'hint': 'Run the dashboard locally to preview this file, or access it directly in your OneDrive folder.'
+                }), 200  # Return 200 so UI can handle gracefully
+
             return jsonify({'error': f'Report not found: {agent_type}/{filename}'}), 404
 
         # Handle different file types
