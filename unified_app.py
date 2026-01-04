@@ -693,57 +693,190 @@ def save_report():
 @app.route('/AgentGarden/api/reports/view/<path:report_path>', methods=['GET'])
 def view_report(report_path):
     """
-    View a Claude-generated report (HYBRID: database + local file fallback)
-    Path format: {agent_type}/{report_title}.md
-    Returns: Markdown content as plain text
+    View/download a Claude-generated report (HYBRID: database + local file fallback)
+    Path format: Reports/{agent_type}/{filename} or {agent_type}/{filename}
+
+    For .md files: Returns markdown content
+    For .csv files: Returns CSV content or JSON preview (if ?preview=true)
+    For .xlsx/.json: Returns file download
     """
     try:
         from agent_garden.src.core.database import get_db, ClaudeReport
         from pathlib import Path
-        from flask import Response
+        from flask import Response, send_file, request
+        import csv
+        import io
 
-        # Parse path to extract agent_type and report_title
-        # Example: "sales_analysis/report_20260102_081250.md"
+        # Strip "Reports/" prefix if present
+        if report_path.startswith('Reports/'):
+            report_path = report_path[8:]  # Remove "Reports/"
+
+        # Parse path to extract agent_type and filename
         parts = report_path.rsplit('/', 1)
         if len(parts) != 2:
-            return "Invalid report path", 400
+            return jsonify({'error': 'Invalid report path'}), 400
 
         agent_type = parts[0]
         filename = parts[1]
-        report_title = filename.replace('.md', '')
 
-        # 1. Try database first
-        db = get_db()
-        if db:
-            try:
-                report = db.query(ClaudeReport).filter(
-                    ClaudeReport.agent_type == agent_type,
-                    ClaudeReport.report_title == report_title
-                ).first()
+        # Get file extension
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'md'
+        report_title = filename.rsplit('.', 1)[0]
 
-                if report:
-                    return Response(report.report_content, mimetype='text/markdown')
-            finally:
-                db.close()
+        # Check if preview mode requested (for CSV)
+        preview_mode = request.args.get('preview', 'false').lower() == 'true'
+        preview_rows = int(request.args.get('rows', 25))
 
-        # 2. Fallback to local file
+        # Find the file locally
         local_reports_paths = [
             Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools/Reports",
             Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools/reports",
-            Path("/Users/vusmac/Library/CloudStorage/OneDrive-Personal/Claude Tools/Reports"),
+        ]
+
+        local_file = None
+        for reports_base in local_reports_paths:
+            candidate = reports_base / agent_type / filename
+            if candidate.exists():
+                local_file = candidate
+                break
+
+        # If not found locally, try database (for .md files)
+        if not local_file and ext == 'md':
+            db = get_db()
+            if db:
+                try:
+                    report = db.query(ClaudeReport).filter(
+                        ClaudeReport.agent_type == agent_type,
+                        ClaudeReport.report_title == report_title
+                    ).first()
+                    if report:
+                        return Response(report.report_content, mimetype='text/markdown')
+                finally:
+                    db.close()
+
+        if not local_file:
+            return jsonify({'error': f'Report not found: {agent_type}/{filename}'}), 404
+
+        # Handle different file types
+        if ext == 'md':
+            content = local_file.read_text(encoding='utf-8')
+            return Response(content, mimetype='text/markdown; charset=utf-8')
+
+        elif ext == 'csv':
+            if preview_mode:
+                # Return JSON preview with first N rows
+                rows = []
+                headers = []
+                with open(local_file, 'r', encoding='utf-8') as f:
+                    reader = csv.reader(f)
+                    headers = next(reader, [])
+                    for i, row in enumerate(reader):
+                        if i >= preview_rows:
+                            break
+                        rows.append(row)
+
+                total_rows = sum(1 for _ in open(local_file, 'r', encoding='utf-8')) - 1
+                return jsonify({
+                    'success': True,
+                    'headers': headers,
+                    'rows': rows,
+                    'preview_count': len(rows),
+                    'total_rows': total_rows,
+                    'filename': filename,
+                    'local_path': str(local_file)
+                })
+            else:
+                # Return CSV file download
+                return send_file(
+                    local_file,
+                    mimetype='text/csv',
+                    as_attachment=True,
+                    download_name=filename
+                )
+
+        elif ext in ['xlsx', 'xls']:
+            return send_file(
+                local_file,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                as_attachment=True,
+                download_name=filename
+            )
+
+        elif ext == 'json':
+            if preview_mode:
+                import json
+                with open(local_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                return jsonify({
+                    'success': True,
+                    'data': data,
+                    'filename': filename,
+                    'local_path': str(local_file)
+                })
+            else:
+                return send_file(
+                    local_file,
+                    mimetype='application/json',
+                    as_attachment=True,
+                    download_name=filename
+                )
+
+        else:
+            # Unknown format - try to send as download
+            return send_file(local_file, as_attachment=True, download_name=filename)
+
+    except Exception as e:
+        logger.error(f"Error viewing report: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/api/reports/info/<path:report_path>', methods=['GET'])
+def report_info(report_path):
+    """
+    Get metadata about a report file (for showing local path, size, etc.)
+    """
+    try:
+        from pathlib import Path
+        import os
+
+        # Strip "Reports/" prefix if present
+        if report_path.startswith('Reports/'):
+            report_path = report_path[8:]
+
+        parts = report_path.rsplit('/', 1)
+        if len(parts) != 2:
+            return jsonify({'error': 'Invalid report path'}), 400
+
+        agent_type = parts[0]
+        filename = parts[1]
+
+        local_reports_paths = [
+            Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools/Reports",
         ]
 
         for reports_base in local_reports_paths:
             local_file = reports_base / agent_type / filename
             if local_file.exists():
-                content = local_file.read_text(encoding='utf-8')
-                return Response(content, mimetype='text/markdown')
+                stat = local_file.stat()
+                return jsonify({
+                    'success': True,
+                    'filename': filename,
+                    'agent_type': agent_type,
+                    'local_path': str(local_file),
+                    'folder_path': str(local_file.parent),
+                    'size_bytes': stat.st_size,
+                    'size_human': f"{stat.st_size / 1024:.1f} KB" if stat.st_size < 1024*1024 else f"{stat.st_size / (1024*1024):.1f} MB",
+                    'exists': True
+                })
 
-        return f"Report not found: {agent_type}/{report_title}", 404
+        return jsonify({
+            'success': False,
+            'error': 'File not found locally',
+            'exists': False
+        }), 404
 
     except Exception as e:
-        logger.error(f"Error viewing report: {e}")
-        return f"Error loading report: {str(e)}", 500
+        return jsonify({'error': str(e)}), 500
 
 
 # =============================================================================

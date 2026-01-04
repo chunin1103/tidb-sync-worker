@@ -2211,23 +2211,144 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
             }
         }
 
-        // View report preview in modal
+        // View report preview in modal - handles different formats
         async function viewReportPreview(reportPath, reportTitle) {
             try {
                 currentReportPath = reportPath;
-
-                const response = await fetch(`/AgentGarden/api/reports/view/${reportPath}`);
-                const markdown = await response.text();
+                const format = getFormatFromPath(reportPath);
+                const modal = document.getElementById('reportPreviewModal');
+                const content = document.getElementById('reportPreviewContent');
+                const buttons = document.querySelector('#reportPreviewModal .modal-buttons');
 
                 document.getElementById('reportModalTitle').textContent = reportTitle;
-                document.getElementById('reportPreviewContent').innerHTML = `
-                    <div class="modal-data" style="max-height: 500px; white-space: pre-wrap;">${markdown}</div>
-                `;
-                document.getElementById('reportPreviewModal').classList.add('active');
+
+                if (format === 'md') {
+                    // Markdown: show preview
+                    const response = await fetch(`/AgentGarden/api/reports/view/${reportPath}`);
+                    const markdown = await response.text();
+                    content.innerHTML = `
+                        <div class="modal-data" style="max-height: 500px; overflow-y: auto; white-space: pre-wrap; font-family: monospace; font-size: 13px; line-height: 1.5; padding: 1rem; background: #1a1a2e; border-radius: 8px;">${escapeHtml(markdown)}</div>
+                    `;
+                    buttons.innerHTML = `
+                        <button class="btn btn-primary" onclick="downloadCurrentReport()">💾 Download</button>
+                        <button class="btn" onclick="copyReportContent()">📋 Copy</button>
+                    `;
+                } else if (format === 'csv') {
+                    // CSV: show table preview
+                    content.innerHTML = '<div style="text-align: center; padding: 2rem;"><div class="spinner"></div> Loading preview...</div>';
+                    modal.classList.add('active');
+
+                    const response = await fetch(`/AgentGarden/api/reports/view/${reportPath}?preview=true&rows=25`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        const tableHtml = buildCsvPreviewTable(data.headers, data.rows);
+                        content.innerHTML = `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                    <span style="color: #22c55e; font-weight: 600;">📊 CSV Preview (${data.preview_count} of ${data.total_rows.toLocaleString()} rows)</span>
+                                </div>
+                                <div style="background: #0d1117; border: 1px solid #30363d; border-radius: 8px; overflow: hidden;">
+                                    <div style="max-height: 400px; overflow: auto;">
+                                        ${tableHtml}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="background: #1e293b; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                                <div style="color: #94a3b8; font-size: 12px; margin-bottom: 0.5rem;">📁 Local File Path (click to copy):</div>
+                                <code onclick="copyToClipboard('${data.local_path}')" style="cursor: pointer; display: block; padding: 0.5rem; background: #0f172a; border-radius: 4px; font-size: 11px; color: #60a5fa; word-break: break-all;">${data.local_path}</code>
+                            </div>
+                        `;
+                        buttons.innerHTML = `
+                            <button class="btn btn-primary" onclick="downloadCurrentReport()">💾 Download CSV</button>
+                            <button class="btn" onclick="copyFilePath('${data.local_path}')">📁 Copy Path</button>
+                            <button class="btn" onclick="openInFinder('${data.local_path}')">🗂️ Reveal in Finder</button>
+                        `;
+                    } else {
+                        content.innerHTML = `<div style="color: #ef4444; padding: 2rem; text-align: center;">Error: ${data.error || 'Failed to load preview'}</div>`;
+                    }
+                } else if (format === 'xlsx') {
+                    // Excel: can't preview, show download option
+                    const infoResponse = await fetch(`/AgentGarden/api/reports/info/${reportPath}`);
+                    const info = await infoResponse.json();
+
+                    content.innerHTML = `
+                        <div style="text-align: center; padding: 2rem;">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">📑</div>
+                            <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">Excel File</div>
+                            <div style="color: #94a3b8; margin-bottom: 1rem;">${info.size_human || 'Unknown size'}</div>
+                            <div style="color: #64748b; font-size: 13px;">Excel files cannot be previewed in browser.<br>Download or open in OneDrive to view.</div>
+                        </div>
+                        ${info.success ? `
+                        <div style="background: #1e293b; padding: 1rem; border-radius: 8px; margin-top: 1rem;">
+                            <div style="color: #94a3b8; font-size: 12px; margin-bottom: 0.5rem;">📁 Local File Path (click to copy):</div>
+                            <code onclick="copyToClipboard('${info.local_path}')" style="cursor: pointer; display: block; padding: 0.5rem; background: #0f172a; border-radius: 4px; font-size: 11px; color: #60a5fa; word-break: break-all;">${info.local_path}</code>
+                        </div>
+                        ` : ''}
+                    `;
+                    buttons.innerHTML = `
+                        <button class="btn btn-primary" onclick="downloadCurrentReport()">💾 Download Excel</button>
+                        ${info.success ? `<button class="btn" onclick="copyFilePath('${info.local_path}')">📁 Copy Path</button>` : ''}
+                    `;
+                } else if (format === 'json') {
+                    // JSON: show formatted preview
+                    const response = await fetch(`/AgentGarden/api/reports/view/${reportPath}?preview=true`);
+                    const data = await response.json();
+
+                    if (data.success) {
+                        content.innerHTML = `
+                            <div style="max-height: 500px; overflow-y: auto; background: #0f172a; border-radius: 8px; padding: 1rem;">
+                                <pre style="margin: 0; font-size: 12px; color: #e2e8f0;">${escapeHtml(JSON.stringify(data.data, null, 2))}</pre>
+                            </div>
+                        `;
+                    }
+                    buttons.innerHTML = `
+                        <button class="btn btn-primary" onclick="downloadCurrentReport()">💾 Download JSON</button>
+                        <button class="btn" onclick="copyReportContent()">📋 Copy</button>
+                    `;
+                } else {
+                    // Unknown format: offer download
+                    content.innerHTML = `
+                        <div style="text-align: center; padding: 2rem;">
+                            <div style="font-size: 4rem; margin-bottom: 1rem;">📄</div>
+                            <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">${format.toUpperCase()} File</div>
+                            <div style="color: #64748b; font-size: 13px;">This file type cannot be previewed.<br>Click download to save the file.</div>
+                        </div>
+                    `;
+                    buttons.innerHTML = `<button class="btn btn-primary" onclick="downloadCurrentReport()">💾 Download</button>`;
+                }
+
+                modal.classList.add('active');
             } catch (error) {
                 console.error('Error loading report:', error);
-                showToast('Failed to load report', 'error');
+                showToast('Failed to load report: ' + error.message, 'error');
             }
+        }
+
+        // Build HTML table from CSV data
+        function buildCsvPreviewTable(headers, rows) {
+            let html = '<table style="width: 100%; border-collapse: collapse; font-size: 12px;">';
+            html += '<thead><tr>';
+            headers.forEach(h => {
+                html += `<th style="padding: 8px 12px; text-align: left; background: #161b22; color: #58a6ff; border-bottom: 1px solid #30363d; white-space: nowrap;">${escapeHtml(h)}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            rows.forEach((row, i) => {
+                const bgColor = i % 2 === 0 ? '#0d1117' : '#161b22';
+                html += `<tr style="background: ${bgColor};">`;
+                row.forEach(cell => {
+                    html += `<td style="padding: 6px 12px; border-bottom: 1px solid #21262d; color: #c9d1d9; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(cell || '')}</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+            return html;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
 
         function closeReportPreviewModal() {
@@ -2236,7 +2357,14 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
 
         function downloadCurrentReport() {
             if (!currentReportPath) return;
-            window.open(`/AgentGarden/api/reports/view/${currentReportPath}`, '_blank');
+            // Trigger download
+            const link = document.createElement('a');
+            link.href = `/AgentGarden/api/reports/view/${currentReportPath}`;
+            link.download = currentReportPath.split('/').pop();
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            showToast('Download started', 'success');
         }
 
         function copyReportContent() {
@@ -2244,6 +2372,24 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
             navigator.clipboard.writeText(content).then(() => {
                 showToast('Report content copied to clipboard', 'success');
             });
+        }
+
+        function copyFilePath(path) {
+            navigator.clipboard.writeText(path).then(() => {
+                showToast('File path copied to clipboard', 'success');
+            });
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('Copied to clipboard!', 'success');
+            });
+        }
+
+        function openInFinder(path) {
+            // This only works locally - show instructions for cloud
+            showToast('Open Finder and navigate to: ' + path.substring(0, 50) + '...', 'info');
+            copyFilePath(path);
         }
 
         // Load analytics
