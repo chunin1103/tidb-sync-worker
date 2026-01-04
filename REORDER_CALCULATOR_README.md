@@ -15,6 +15,8 @@ The Reorder Calculator is a CSV-based system that applies decision tree logic to
 - ✅ Clarification questions when logic is unclear
 - ✅ Manual edit tracking for continuous improvement
 - ✅ Oceanside Glass rules (0.35 years target)
+- ✅ Bullseye Glass rules (0.25/0.40 thresholds + cascade logic)
+- ✅ Cascade Report CSV export (Bullseye only)
 
 ---
 
@@ -49,7 +51,9 @@ render-tidb-sync/
 │   ├── decision_engine/
 │   │   ├── __init__.py
 │   │   ├── base_calculator.py          # Base class for all calculators
-│   │   └── oceanside_calculator.py     # Oceanside-specific logic (0.35yr target)
+│   │   ├── oceanside_calculator.py     # Oceanside-specific logic (0.35yr target)
+│   │   ├── bullseye_calculator.py      # Bullseye-specific logic (0.25/0.40yr)
+│   │   └── cascade_calculator.py       # 5-step cascade algorithm (Bullseye)
 │   └── templates/
 │       ├── reorder_upload.html         # CSV upload page
 │       ├── reorder_questions.html      # Clarification questions
@@ -209,6 +213,87 @@ else:
 
 ---
 
+## 📊 Bullseye Glass Cascade Report
+
+When manufacturer is "Bullseye Glass", a cascade report is automatically generated alongside the standard output.
+
+### Thresholds
+
+| Threshold | Value | Purpose |
+|-----------|-------|---------|
+| Order trigger | 0.25 years (91 days) | Below this → order needed |
+| Order target | 0.40 years (146 days) | Order enough to reach this |
+
+### 5-Step Cascade Algorithm
+
+```mermaid
+flowchart TD
+    A[Start: Load Family Inventory] --> B[Step 1: Cascade from Existing Inventory]
+    B --> C{Any size below 0.25yr?}
+    C -->|No| D[No order needed]
+    C -->|Yes| E[Step 2: Calculate deficit to reach 0.40yr]
+    E --> F[Step 3: Order Full/Half Sheets]
+    F --> G[Step 4: Cascade from New Order]
+    G --> H[Step 5: Verify all sizes ≥ 0.40yr]
+    H --> I[Output: Sheets to Order/Cut/Save]
+```
+
+### Cutting Yields
+
+| Sheet Type | Yields |
+|------------|--------|
+| 3mm Full Sheet | 6× 10x10 + 2× 5x10 |
+| 2mm Half Sheet | 2× 10x10 + 2× 5x10 |
+| 2 Half Sheets (3mm) | = 1 Full Sheet equivalent |
+
+### Cascade Options (DOWN only)
+
+| From | To | Ratio |
+|------|-----|-------|
+| 10x10 | 5x10 | 1:2 |
+| 10x10 | 5x5 | 1:4 |
+| 5x10 | 5x5 | 1:2 |
+
+### Data Requirements
+
+CSV must include these columns for cascade to work:
+
+| Column | Required | Notes |
+|--------|----------|-------|
+| Product_Name | ✓ | Must contain size (Half Sheet, 10x10, 5x10, 5x5) OR thickness (3mm/2mm) |
+| Vendor_SKU | ✓ | Bullseye format: `XXXX-YYYY-F-FULL` or `XXXX-YYYY-F-HALF` |
+| Products_Parent_Id | Recommended | Groups products into families. If 0, uses SKU color code |
+| Quantity_in_Stock | ✓ | Must be real inventory (not 150000 placeholder) |
+| Purchased | ✓ | Annual sales volume |
+
+**Note:** Products with `Quantity_in_Stock >= 75000` are skipped (parent/placeholder products).
+
+### Cascade Report Output Columns
+
+| Column | Description |
+|--------|-------------|
+| Parent_ID | Product family identifier |
+| Product | Base product name |
+| Thickness | 2mm or 3mm |
+| Flag | URGENT / REORDER / WATCH |
+| Sheets_to_Order | Total sheets to order |
+| Sheets_to_Cut | Sheets to cut into smaller sizes |
+| Sheets_to_Save | Sheets to keep as Half (uncut) |
+| Order_Steps | Cascade decisions made |
+| All_Above_04 | Yes/No - validation check |
+| *_Before_Stock/Years | Inventory before cascade |
+| *_After_Stock/Years | Inventory after cascade |
+
+### Flag Priority
+
+| Flag | Condition |
+|------|-----------|
+| URGENT | Zero stock + no source material + high volume (≥100/yr) |
+| REORDER | Zero stock OR below 28 days critical threshold |
+| WATCH | Below 91 days (0.25yr) target |
+
+---
+
 ## 🔌 API Endpoints
 
 **Base URL:** `https://gpt-mcp.onrender.com/reports`
@@ -221,6 +306,7 @@ else:
 | POST | `/reorder-calculator/submit-answers/<session_id>` | Submit answers |
 | GET | `/reorder-calculator/download/<session_id>` | Download page with preview |
 | GET | `/reorder-calculator/export/<session_id>` | Export final CSV |
+| GET | `/reorder-calculator/export-cascade/<session_id>` | Export cascade report CSV (Bullseye) |
 | GET | `/reorder-calculator/audit/<session_id>` | Manual edits log |
 | GET | `/reorder-calculator/questions` | **Questions Dashboard** (all questions) |
 | POST | `/reorder-calculator/save-answer` | Save answer from dashboard |
@@ -424,10 +510,9 @@ Questions are identified by `field_name` for deduplication:
 
 ## 🔮 Future Enhancements
 
-### Phase 2 (Not Yet Implemented)
-- [ ] Bullseye Glass calculator (0.25/0.40 thresholds, cascade logic)
+### Phase 2 (Partial)
+- [x] Bullseye Glass calculator (0.25/0.40 thresholds, cascade logic) ✅ Implemented 2026-01-04
 - [ ] Color De Verre calculator (multiples of 5, minimum 10 if zero)
-- [ ] Cutting opportunity detection (parent/child analysis)
 - [ ] Answer incorporation (recalculate when client provides clarifications)
 - [ ] Session listing page (view all past calculations)
 
@@ -447,6 +532,5 @@ Questions are identified by `field_name` for deduplication:
 
 ---
 
-**Last Updated:** 2026-01-03
-**Implementation Time:** ~5 hours
-**Status:** ✅ Ready for Production Testing
+**Last Updated:** 2026-01-04
+**Status:** ✅ Production (Oceanside + Bullseye Cascade)
