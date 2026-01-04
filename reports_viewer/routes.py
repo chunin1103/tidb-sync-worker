@@ -45,6 +45,7 @@ def upload_csv():
             return jsonify({'error': 'No file selected'}), 400
 
         manufacturer = request.form.get('manufacturer', 'Oceanside Glass')
+        start_fresh = request.form.get('start_fresh') == '1'
 
         # Create session
         session_id = str(uuid.uuid4())
@@ -112,7 +113,7 @@ def upload_csv():
             # Collect questions
             if result['questions']:
                 for q in result['questions']:
-                    save_question(session_id, product['Product_ID'], product['Product_Name'], q)
+                    save_question(session_id, product['Product_ID'], product['Product_Name'], q, skip_learning=start_fresh)
                     all_questions.extend(result['questions'])
 
         conn.commit()

@@ -109,10 +109,18 @@ def update_session_status(session_id: str, status: str) -> None:
 # QUESTION MANAGEMENT
 # ============================================================================
 
-def save_question(session_id: str, product_id: int, product_name: str, question: Dict) -> bool:
+def save_question(session_id: str, product_id: int, product_name: str, question: Dict, skip_learning: bool = False) -> bool:
     """
     Save a clarification question.
-    Skips if an answered question with same product_id and field_name already exists.
+    Skips if an answered question with same product_id and field_name already exists,
+    unless skip_learning=True (Start Fresh mode).
+
+    Args:
+        session_id: Current session ID
+        product_id: Product ID the question relates to
+        product_name: Product name for display
+        question: Question dictionary with 'field', 'priority', 'question', 'suggested_answer'
+        skip_learning: If True, always create new question (ignore past answers)
 
     Returns:
         True if question was saved, False if skipped (duplicate with answered version)
@@ -120,20 +128,22 @@ def save_question(session_id: str, product_id: int, product_name: str, question:
     db = get_db_session()
     try:
         # Check if an answered question already exists for this product/field combo
-        existing = db.execute(text("""
-            SELECT question_id FROM reorder_questions
-            WHERE product_id = :product_id
-              AND field_name = :field_name
-              AND client_answer IS NOT NULL
-            LIMIT 1
-        """), {
-            'product_id': product_id,
-            'field_name': question['field']
-        }).fetchone()
+        # Skip this check if start_fresh mode is enabled
+        if not skip_learning:
+            existing = db.execute(text("""
+                SELECT question_id FROM reorder_questions
+                WHERE product_id = :product_id
+                  AND field_name = :field_name
+                  AND client_answer IS NOT NULL
+                LIMIT 1
+            """), {
+                'product_id': product_id,
+                'field_name': question['field']
+            }).fetchone()
 
-        if existing:
-            # Skip - already answered
-            return False
+            if existing:
+                # Skip - already answered
+                return False
 
         db.execute(text("""
             INSERT INTO reorder_questions (session_id, product_id, product_name, priority, question_text, field_name, suggested_answer)
