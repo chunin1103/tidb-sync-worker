@@ -105,6 +105,39 @@ class ClaudeExecutor:
             logger.error(f"Error marking task {task_id} as failed: {e}")
             return False
 
+    def sync_report_to_server(self, agent_type: str, report_title: str,
+                               report_content: str, file_path: str, task_id: int = None) -> bool:
+        """Sync a generated report to the Render server database"""
+        try:
+            payload = {
+                'agent_type': agent_type,
+                'report_title': report_title,
+                'report_content': report_content,
+                'file_path': file_path
+            }
+            if task_id:
+                payload['task_id'] = task_id
+
+            response = requests.post(
+                f"{self.mcp_server}/AgentGarden/api/reports/save",
+                json=payload,
+                timeout=30
+            )
+            response.raise_for_status()
+            result = response.json()
+
+            if result.get('success'):
+                report_id = result.get('report_id')
+                logger.info(f"☁️  Report synced to server (ID: {report_id})")
+                return True
+            else:
+                logger.warning(f"⚠️  Server returned error: {result.get('error')}")
+                return False
+
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"⚠️  Failed to sync report to server: {e}")
+            return False
+
     def execute_task(self, task: Dict[str, Any]):
         """Execute a single task"""
         task_id = task['id']
@@ -137,7 +170,7 @@ class ClaudeExecutor:
             elif task_type == 'calculation':
                 result = self.handle_calculation(task_json, output_format)
             elif task_type in agent_types:
-                result = self.handle_agent_report(task_json, output_format)
+                result = self.handle_agent_report(task_json, output_format, task_id)
             else:
                 raise ValueError(f"Unknown task type: {task_type}")
 
@@ -573,7 +606,7 @@ Use the Write tool to save the markdown content."""
             tools_used
         )
 
-    def handle_agent_report(self, task_json: Dict, output_format: str = 'md') -> Dict:
+    def handle_agent_report(self, task_json: Dict, output_format: str = 'md', task_id: int = None) -> Dict:
         """Handle autonomous agent reports (HYBRID: Direct MCP + Claude Code CLI)"""
         agent_type = task_json.get('agent_type', 'Unknown')
         report_title = task_json.get('report_title', 'Agent Report')
@@ -737,6 +770,15 @@ Claude Code CLI execution timed out after 5 minutes.
         relative_path = str(result_file.relative_to(self.onedrive_base))
 
         logger.info(f"✅ Agent report saved: {relative_path}")
+
+        # Sync report to server database for UI display
+        self.sync_report_to_server(
+            agent_type=agent_type,
+            report_title=report_title,
+            report_content=full_report,
+            file_path=relative_path,
+            task_id=task_id
+        )
 
         return {
             'path': relative_path,
