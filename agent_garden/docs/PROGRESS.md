@@ -401,3 +401,20 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-04: Reports List Not Updating Fix - Hybrid Database + Local Scan
+**Status**: Completed
+**Files Modified**: unified_app.py:558-646 (list_reports, view_report), claude_executor.py:24-25,624-628
+**Problem**: Generated reports not appearing in Agent Garden UI even though files existed in OneDrive
+**Root Cause**: API only read from database; if sync to Render database failed, reports invisible in UI
+**Approach**: Hybrid listing (database + local folder scan) ensures reports always visible (vs database-only)
+**Key Changes**:
+- `list_reports()`: First fetches from database, then scans local `Claude Tools/Reports/` folder, merges and deduplicates
+- `view_report()`: Falls back to local file if not found in database
+- Updated `ONEDRIVE_BASE` from `~/OneDrive` to `~/OneDrive/Claude Tools` (correct project folder)
+- Reports now save to `Reports/{agent_type}/` (e.g., `Reports/inventory_intelligence/report_*.md`)
+**Commits**: fdec4c3 (feat: task queue + docs), 6308eb2 (fix: reports list hybrid)
+**Impact**: UI shows reports immediately when generated locally, regardless of database sync status
+**Testing**: Verified existing reports in `Claude Tools/Reports/` folder, pushed to GitHub
+
+---
+
