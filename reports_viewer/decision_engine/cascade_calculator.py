@@ -56,10 +56,18 @@ def calc_min_stock(purchased: float, years: float) -> int:
 
 
 def get_size_type(row: Dict) -> Optional[str]:
-    """Determine the size type of the product."""
+    """Determine the size type of the product.
+
+    Supports two formats:
+    1. Explicit size in name: "Half Sheet", "10x10", "5x10", "5x5"
+    2. Bullseye vendor format: Vendor_SKU ending in -FULL (Full/Half Sheet), -HALF (Half Sheet)
+       Combined with thickness: 3mm+FULL=order Full Sheets, 2mm+HALF=order Half Sheets
+    """
     name = str(row.get('Product_Name', '')).lower()
     model = str(row.get('Model', '')).lower()
+    vendor_sku = str(row.get('Vendor_SKU', row.get('Vendor SKU', ''))).upper()
 
+    # Check explicit size patterns first (preferred)
     if 'half sheet' in name or 'halfsheet' in name or '.hs' in model:
         return 'Half'
     elif 'full sheet' in name or 'fullsheet' in name or '.fs' in model:
@@ -70,6 +78,17 @@ def get_size_type(row: Dict) -> Optional[str]:
         return '5x10'
     elif '5x5' in name or '5"x5"' in name or '.5x5' in model:
         return '5x5'
+
+    # Bullseye Vendor SKU format: ends with -FULL or -HALF
+    # -FULL (3mm Double-rolled) = we order Full Sheets (treat as Half for cascade ordering)
+    # -HALF (2mm Thin-rolled) = we order Half Sheets
+    if vendor_sku.endswith('-FULL'):
+        # 3mm Full sheet product - cascade treats these as 'Half' (the sheet size we order)
+        return 'Half'
+    elif vendor_sku.endswith('-HALF'):
+        # 2mm Half sheet product
+        return 'Half'
+
     return None
 
 
@@ -86,28 +105,40 @@ def get_thickness(row: Dict) -> str:
 
 
 def is_sheet_glass(row: Dict) -> bool:
-    """Check if product is sheet glass (orderable from Bullseye)."""
+    """Check if product is sheet glass (orderable from Bullseye).
+
+    Recognizes both explicit size patterns and Bullseye's vendor SKU format.
+    """
     name = str(row.get('Product_Name', '')).lower()
     model = str(row.get('Model', '')).lower()
-    vendor_sku = str(row.get('Vendor SKU', row.get('Vendor_SKU', ''))).lower()
+    vendor_sku = str(row.get('Vendor_SKU', row.get('Vendor SKU', ''))).lower()
 
     exclusions = [
         'by the pound', 'sampler', 'disco pack', 'disco round',
         'mystery box', 'class pack', '10 pack', 'wissmach', 'coe96',
         'colorline', 'frit', '-tube', 'thinfire', 'shelf paper',
         'ribbon', 'stringer', 'noodle', 'rod', 'confetti', 'billet',
-        'accessory', 'tool', 'kiln', 'mold', 'tekta'
+        'accessory', 'tool', 'kiln', 'mold', 'tekta', 'glue', 'gel',
+        'powder', 'collage', 'streamers', 'fractures', 'chopstix'
     ]
 
     for excl in exclusions:
         if excl in name or excl in model or excl in vendor_sku:
             return False
 
+    # Check explicit size patterns
     sizes = ['half sheet', 'full sheet', '10x10', '5x10', '5x5',
              'halfsheet', 'hs', 'fs', '10"x10"', '5"x10"', '5"x5"']
 
     for size in sizes:
         if size in name.lower() or size in model.lower():
+            return True
+
+    # Bullseye vendor format: -FULL or -HALF suffix with thickness indicator
+    # Examples: 0139-0030-F-FULL (3mm Full), 0139-0050-F-HALF (2mm Half)
+    if vendor_sku.endswith('-full') or vendor_sku.endswith('-half'):
+        # Must also have thickness indicator (3mm/2mm or double-rolled/thin-rolled)
+        if '3mm' in name or '2mm' in name or 'double-rolled' in name or 'thin-rolled' in name:
             return True
 
     return False
@@ -421,6 +452,25 @@ def get_reorder_flag(inv_data: Dict) -> Optional[Tuple[str, str]]:
     return None
 
 
+def get_sku_color_code(vendor_sku: str) -> Optional[str]:
+    """Extract the color code from Bullseye Vendor SKU.
+
+    Bullseye SKU format: XXXX-YYYY-Z-SIZE
+    - XXXX = Color code (e.g., 0139 for Almond)
+    - YYYY = Product variant (0030=3mm, 0050=2mm, etc.)
+    - Z = F for Fusible
+    - SIZE = FULL or HALF
+
+    Returns the color code (first 4 digits) or None if not valid.
+    """
+    if not vendor_sku:
+        return None
+    parts = vendor_sku.split('-')
+    if len(parts) >= 1 and len(parts[0]) == 4 and parts[0].isdigit():
+        return parts[0]
+    return None
+
+
 def analyze_cascade(products: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
     """
     Group products by parent and analyze reorder needs with cascade logic.
@@ -464,7 +514,19 @@ def analyze_cascade(products: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
             parent_id = 0
 
         thickness = get_thickness(row)
-        key = f"{parent_id}_{thickness}"
+
+        # If parent_id is 0, try to group by Vendor SKU color code instead
+        # This handles Bullseye data where Products_Parent_Id isn't set
+        if parent_id == 0:
+            vendor_sku = str(row.get('Vendor_SKU', row.get('Vendor SKU', '')))
+            color_code = get_sku_color_code(vendor_sku)
+            if color_code:
+                key = f"sku_{color_code}_{thickness}"
+            else:
+                # No grouping possible - use product ID as unique key
+                key = f"pid_{row.get('Product_ID', 0)}_{thickness}"
+        else:
+            key = f"{parent_id}_{thickness}"
 
         try:
             qty = float(row.get('Quantity_in_Stock', 0) or 0)
@@ -484,6 +546,7 @@ def analyze_cascade(products: List[Dict]) -> Tuple[List[Dict], List[Dict]]:
         }
         parents[key]['parent_id'] = parent_id
         parents[key]['thickness'] = thickness
+        parents[key]['group_key'] = key  # Store for reference
 
     results = []
     all_validations = []
