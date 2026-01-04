@@ -78,8 +78,8 @@ try:
         view_func = mcp_app.view_functions[rule.endpoint]
 
         # Register the route in the main app
-        # Skip static routes
-        if rule.endpoint != 'static':
+        # Skip static routes and root route (we have our own home page)
+        if rule.endpoint != 'static' and rule.rule != '/':
             app.add_url_rule(
                 rule.rule,
                 endpoint=f"mcp_{rule.endpoint}",
