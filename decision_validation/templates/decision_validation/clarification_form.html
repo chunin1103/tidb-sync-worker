@@ -1,0 +1,332 @@
+{% extends "decision_validation/base.html" %}
+
+{% block title %}Answer Clarification{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-container {
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .question-display {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 30px;
+        border-radius: 12px;
+        color: white;
+        margin-bottom: 30px;
+    }
+
+    .question-display h2 {
+        margin-bottom: 15px;
+        font-size: 1.8em;
+    }
+
+    .question-display .meta {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .form-group {
+        margin-bottom: 25px;
+    }
+
+    .form-group label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #333;
+        font-size: 1.05em;
+    }
+
+    .form-group .help-text {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 12px;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        font-size: 1em;
+        transition: all 0.3s ease;
+        font-family: inherit;
+    }
+
+    .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+        box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+    }
+
+    textarea.form-control {
+        min-height: 120px;
+        resize: vertical;
+        font-family: 'Courier New', monospace;
+    }
+
+    .form-actions {
+        display: flex;
+        gap: 15px;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 2px solid #eee;
+    }
+
+    .current-guess {
+        background: #e3f2fd;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+        border-left: 4px solid #2196f3;
+    }
+
+    .current-guess h4 {
+        color: #1976d2;
+        margin-bottom: 10px;
+    }
+
+    .context-box {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 25px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9em;
+    }
+
+    .example-values {
+        background: #fff3cd;
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 10px;
+        border-left: 4px solid #ffc107;
+    }
+
+    .example-values h5 {
+        color: #856404;
+        margin-bottom: 10px;
+        font-size: 0.95em;
+    }
+
+    .example-values code {
+        background: #fff;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-family: 'Courier New', monospace;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="question-display">
+        <div class="meta">
+            <span class="badge" style="background: white; color: #667eea;">{{ question.id }}</span>
+            <span class="badge badge-{{ question.priority.lower() }}">{{ question.priority }}</span>
+            <span class="badge" style="background: rgba(255,255,255,0.2);">{{ question.category }}</span>
+        </div>
+
+        <h2>{{ question.question_text or question.field_name or 'Clarification Needed' }}</h2>
+
+        <p style="margin-top: 15px; opacity: 0.9;">
+            <strong>Workflow:</strong> {{ workflow.name }}
+        </p>
+    </div>
+
+    <div class="alert alert-info">
+        <strong>📋 What we need from you:</strong>
+        <div style="margin-top: 10px; white-space: pre-wrap;">{{ question.clarification_needed }}</div>
+    </div>
+
+    {% if question.context %}
+    <div class="context-box">
+        <strong>Context from Decision Tree:</strong><br>
+        {{ question.context }}
+    </div>
+    {% endif %}
+
+    {% if question.current_guess or question.current_mapping %}
+    <div class="current-guess">
+        <h4>💡 Our Best Guess</h4>
+        {% if question.current_guess %}
+        <p><strong>Table:</strong> {{ question.current_guess.table or 'Not determined' }}</p>
+        <p><strong>Column:</strong> {{ question.current_guess.column or 'Not determined' }}</p>
+        {% if question.current_guess.calculation %}
+        <p><strong>Calculation:</strong> <code>{{ question.current_guess.calculation }}</code></p>
+        {% endif %}
+        {% elif question.current_mapping %}
+        <p><strong>Table:</strong> {{ question.current_mapping.table or 'Not determined' }}</p>
+        <p><strong>Column:</strong> {{ question.current_mapping.column or 'Not determined' }}</p>
+        {% endif %}
+        <p style="margin-top: 10px; font-style: italic;">Please confirm or provide the correct information below.</p>
+    </div>
+    {% endif %}
+
+    <form id="clarificationForm">
+        <input type="hidden" name="question_id" value="{{ question.id }}">
+        <input type="hidden" name="decision_id" value="{{ question.decision_node or question.node_id }}">
+
+        <div class="form-group">
+            <label for="table">Database Table</label>
+            <input type="text"
+                   class="form-control"
+                   id="table"
+                   name="table"
+                   value="{{ question.current_guess.table if question.current_guess else '' }}"
+                   placeholder="e.g., products, orders, orders_products">
+            <div class="help-text">Which table contains this information?</div>
+
+            <div class="example-values">
+                <h5>📚 Available Tables:</h5>
+                <code>products</code>, <code>products_description</code>, <code>orders</code>,
+                <code>orders_products</code>, <code>orders_total</code>, <code>customers</code>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="column">Database Column</label>
+            <input type="text"
+                   class="form-control"
+                   id="column"
+                   name="column"
+                   value="{{ question.current_guess.column if question.current_guess else '' }}"
+                   placeholder="e.g., products_quantity, date_purchased">
+            <div class="help-text">Which column contains this value?</div>
+
+            <div class="example-values">
+                <h5>📊 Common Columns:</h5>
+                <strong>products:</strong> <code>products_quantity</code>, <code>products_price</code>, <code>products_cost</code><br>
+                <strong>orders:</strong> <code>date_purchased</code>, <code>orders_status</code><br>
+                <strong>orders_products:</strong> <code>products_quantity</code>, <code>final_price</code>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="calculation">Calculation or Formula (Optional)</label>
+            <textarea class="form-control"
+                      id="calculation"
+                      name="calculation"
+                      placeholder="e.g., products_quantity / (lifetime_units_sold / 365)">{{ question.current_guess.calculation if question.current_guess else '' }}</textarea>
+            <div class="help-text">If this requires a calculation, provide the formula (SQL expression or Python code)</div>
+
+            <div class="example-values">
+                <h5>💡 Example Calculations:</h5>
+                <code>products_quantity / (lifetime_units_sold / 365)</code> (Years in Stock)<br>
+                <code>products_quantity - minimum_stock_level</code> (Excess Stock)<br>
+                <code>SUM(orders_total.value) WHERE class='ot_total'</code> (Revenue)
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="filters">Filters (JSON, Optional)</label>
+            <textarea class="form-control"
+                      id="filters"
+                      name="filters"
+                      placeholder='{"products_status": 1, "web_id": 1}'>{}</textarea>
+            <div class="help-text">Any WHERE clause filters needed (as JSON)</div>
+        </div>
+
+        <div class="form-group">
+            <label for="notes">Additional Notes</label>
+            <textarea class="form-control"
+                      id="notes"
+                      name="notes"
+                      placeholder="Any additional context or special cases..."></textarea>
+            <div class="help-text">Provide any additional context about this decision</div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-success">
+                ✅ Submit Clarification
+            </button>
+            <a href="{{ url_for('decision_validation.clarifications_list') }}" class="btn btn-secondary">
+                ← Back to List
+            </a>
+            <a href="{{ url_for('decision_validation.workflow_detail', workflow_path=workflow.path) }}"
+               class="btn btn-secondary">
+                📊 View Workflow
+            </a>
+        </div>
+    </form>
+
+    <div id="submitMessage" style="display: none; margin-top: 20px;"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('clarificationForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const formData = new FormData(e.target);
+    const data = {
+        question_id: formData.get('question_id'),
+        decision_id: formData.get('decision_id'),
+        table: formData.get('table'),
+        column: formData.get('column'),
+        calculation: formData.get('calculation') || null,
+        filters: formData.get('filters') ? JSON.parse(formData.get('filters')) : {},
+        notes: formData.get('notes')
+    };
+
+    // Show loading state
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.innerHTML = '⏳ Submitting...';
+    submitBtn.disabled = true;
+
+    try {
+        const response = await fetch('/decision-validation/api/submit-clarification', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        const messageDiv = document.getElementById('submitMessage');
+
+        if (response.ok) {
+            messageDiv.className = 'alert alert-success';
+            messageDiv.innerHTML = `
+                <strong>✅ Success!</strong> Your clarification has been saved.
+                <p style="margin-top: 10px;">
+                    <a href="{{ url_for('decision_validation.clarifications_list') }}" class="btn btn-success">
+                        View All Clarifications
+                    </a>
+                </p>
+            `;
+            messageDiv.style.display = 'block';
+
+            // Scroll to message
+            messageDiv.scrollIntoView({ behavior: 'smooth' });
+
+        } else {
+            messageDiv.className = 'alert alert-warning';
+            messageDiv.innerHTML = `<strong>⚠️ Error:</strong> ${result.error || 'Failed to submit'}`;
+            messageDiv.style.display = 'block';
+
+            // Re-enable button
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        }
+
+    } catch (error) {
+        const messageDiv = document.getElementById('submitMessage');
+        messageDiv.className = 'alert alert-warning';
+        messageDiv.innerHTML = `<strong>⚠️ Error:</strong> ${error.message}`;
+        messageDiv.style.display = 'block';
+
+        // Re-enable button
+        submitBtn.innerHTML = originalText;
+        submitBtn.disabled = false;
+    }
+});
+</script>
+{% endblock %}

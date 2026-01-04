@@ -1,0 +1,172 @@
+{% extends "decision_validation/base.html" %}
+
+{% block title %}Decision Workflows{% endblock %}
+
+{% block extra_css %}
+<style>
+    .workflow-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 25px;
+        margin-top: 30px;
+    }
+
+    .workflow-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        color: white;
+    }
+
+    .workflow-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(102,126,234,0.3);
+    }
+
+    .workflow-card h3 {
+        font-size: 1.4em;
+        margin-bottom: 15px;
+        color: white;
+    }
+
+    .workflow-stats {
+        display: flex;
+        gap: 15px;
+        margin: 15px 0;
+        flex-wrap: wrap;
+    }
+
+    .stat {
+        background: rgba(255,255,255,0.2);
+        padding: 8px 15px;
+        border-radius: 8px;
+        font-size: 0.9em;
+        backdrop-filter: blur(10px);
+    }
+
+    .stat strong {
+        display: block;
+        font-size: 1.4em;
+        margin-top: 5px;
+    }
+
+    .workflow-link {
+        display: inline-block;
+        margin-top: 15px;
+        padding: 10px 20px;
+        background: white;
+        color: #667eea;
+        text-decoration: none;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+
+    .workflow-link:hover {
+        transform: translateX(5px);
+        box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+    }
+
+    .page-header {
+        margin-bottom: 30px;
+    }
+
+    .page-header h2 {
+        color: #667eea;
+        font-size: 2em;
+        margin-bottom: 10px;
+    }
+
+    .page-header p {
+        color: #666;
+        font-size: 1.1em;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .empty-state svg {
+        width: 120px;
+        height: 120px;
+        margin-bottom: 20px;
+        opacity: 0.3;
+    }
+
+    .empty-state h3 {
+        color: #666;
+        margin-bottom: 10px;
+    }
+
+    .empty-state p {
+        color: #999;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h2>Decision Workflows</h2>
+    <p>Review decision trees and identify mapping gaps</p>
+</div>
+
+{% if workflows %}
+<div class="workflow-grid">
+    {% for workflow in workflows %}
+    <div class="workflow-card">
+        <h3>{{ workflow.name }}</h3>
+
+        {% if workflow.error %}
+        <div class="alert alert-warning">
+            ⚠️ Error parsing workflow: {{ workflow.error }}
+        </div>
+        {% else %}
+        <div class="workflow-stats">
+            <div class="stat">
+                <span>Decisions</span>
+                <strong>{{ workflow.decision_count }}</strong>
+            </div>
+            <div class="stat">
+                <span>Processes</span>
+                <strong>{{ workflow.process_count }}</strong>
+            </div>
+            <div class="stat">
+                <span>Data Nodes</span>
+                <strong>{{ workflow.data_count }}</strong>
+            </div>
+        </div>
+
+        <a href="{{ url_for('decision_validation.workflow_detail', workflow_path=workflow.path) }}"
+           class="workflow-link">
+            Analyze Workflow →
+        </a>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+    </svg>
+    <h3>No Workflows Found</h3>
+    <p>No decision workflow files found in the wiki directory.</p>
+    <p style="margin-top: 10px; color: #999;">Expected location: Production/wiki/03_Decision_Workflows/*.md</p>
+</div>
+{% endif %}
+
+<div class="alert alert-info" style="margin-top: 30px;">
+    <strong>ℹ️ How It Works:</strong>
+    <ol style="margin-top: 10px; margin-left: 20px;">
+        <li>Each workflow contains decision trees defined in Mermaid diagrams</li>
+        <li>We parse these diagrams to extract decision points and data requirements</li>
+        <li>The system attempts to map each decision to database tables/columns</li>
+        <li>Unmapped or unclear decisions are flagged for your clarification</li>
+        <li>Once mapped, decisions can execute consistently against live database</li>
+    </ol>
+</div>
+{% endblock %}

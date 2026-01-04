@@ -17,6 +17,7 @@ The Reorder Calculator is a CSV-based system that applies decision tree logic to
 - ✅ Oceanside Glass rules (0.35 years target)
 - ✅ Bullseye Glass rules (0.25/0.40 thresholds + cascade logic)
 - ✅ Cascade Report CSV export (Bullseye only)
+- ✅ "Start Fresh" mode (ignore previously answered questions)
 
 ---
 
@@ -447,6 +448,64 @@ Questions can be duplicated when the same calculation is run multiple times. The
 
 ---
 
+## 🔄 Start Fresh Mode (Question Learning Override)
+
+By default, the Reorder Calculator "learns" from previously answered questions. When you re-upload a CSV, it skips questions that were already answered for the same `product_id` + `field_name` combination.
+
+### The Problem
+
+When re-uploading updated data:
+- System remembers previous answers
+- Questions don't appear again
+- Gives impression that new file wasn't recalculated
+
+### The Solution: Start Fresh Checkbox
+
+On the upload page, check **"Start Fresh - Ignore previously answered questions"** to:
+
+| Mode | Behavior |
+|------|----------|
+| **Normal** (unchecked) | Uses learned answers - skips questions you've already answered for that product |
+| **Start Fresh** (checked) | Ignores all past answers - asks all questions again as if first time |
+
+### When to Use Start Fresh
+
+| Scenario | Use Start Fresh? |
+|----------|------------------|
+| Re-uploading same file to check output | No |
+| Uploading corrected data that changes answers | **Yes** |
+| New inventory snapshot with different products | No (new products get questions anyway) |
+| Testing/debugging the calculator | **Yes** |
+| Significant business rule changes | **Yes** |
+
+### Technical Details
+
+**Implementation:** `database.py:save_question()`
+
+```python
+def save_question(..., skip_learning: bool = False):
+    if not skip_learning:
+        # Check if answered question exists
+        existing = db.execute("""
+            SELECT question_id FROM reorder_questions
+            WHERE product_id = :product_id
+              AND field_name = :field_name
+              AND client_answer IS NOT NULL
+        """)
+        if existing:
+            return False  # Skip - already answered
+
+    # Create new question
+    db.execute("INSERT INTO reorder_questions ...")
+```
+
+**Files Modified:**
+- `reports_viewer/templates/reorder_upload.html` - Added checkbox UI
+- `reports_viewer/routes.py:48` - Reads `start_fresh` form value
+- `reports_viewer/database.py:112` - Added `skip_learning` parameter
+
+---
+
 ## 🗃️ Where to Get Questions & Answers
 
 ### Option 1: Web Dashboard (Recommended)
@@ -628,5 +687,5 @@ Questions are identified by `field_name` for deduplication:
 
 ---
 
-**Last Updated:** 2026-01-04 (Cascade bug fixes deployed)
-**Status:** ✅ Production (Oceanside + Bullseye Cascade v2)
+**Last Updated:** 2026-01-04 (Added "Start Fresh" mode)
+**Status:** ✅ Production (Oceanside + Bullseye Cascade v2 + Start Fresh)
