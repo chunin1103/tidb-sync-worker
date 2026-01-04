@@ -21,7 +21,8 @@ from typing import Dict, Any, Optional
 # Configuration
 MCP_SERVER = os.getenv('MCP_SERVER', 'https://gpt-mcp.onrender.com')
 POLL_INTERVAL = int(os.getenv('POLL_INTERVAL', '30'))  # seconds
-ONEDRIVE_BASE = Path.home() / "Library/CloudStorage/OneDrive-Personal"
+# Reports should be saved in Claude Tools folder
+ONEDRIVE_BASE = Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools"
 
 # Setup logging
 logging.basicConfig(
@@ -620,9 +621,10 @@ Use the Write tool to save the markdown content."""
         # Initialize tools_used for tracking
         tools_used = []
 
-        # Get output configuration
+        # Get output configuration - organize by agent_type
         output_config = task_json.get('output', {})
-        output_path = self.onedrive_base / output_config.get('path', 'Reports/Agents')
+        default_path = f'Reports/{agent_type}'  # e.g., Reports/inventory_intelligence
+        output_path = self.onedrive_base / output_config.get('path', default_path)
         output_path.mkdir(parents=True, exist_ok=True)
 
         # Generate filename with appropriate extension based on format

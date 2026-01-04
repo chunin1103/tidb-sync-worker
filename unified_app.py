@@ -558,23 +558,87 @@ def list_claude_tasks():
 @app.route('/AgentGarden/api/reports/list', methods=['GET'])
 def list_reports():
     """
-    List all Claude-generated reports from database
+    List all Claude-generated reports (HYBRID: database + local folder scan)
     Returns: List of report metadata (title, path, size, created_at, agent_type)
+
+    This hybrid approach ensures reports show up even if sync to database failed.
     """
     try:
         from flask import request
         from agent_garden.src.core.database import get_claude_reports
+        from pathlib import Path
+        from datetime import datetime
+        import os
 
         limit = request.args.get('limit', 50, type=int)
-        agent_type = request.args.get('agent_type', None)
+        agent_type_filter = request.args.get('agent_type', None)
 
-        # Get reports from database
-        reports = get_claude_reports(limit=limit, agent_type=agent_type)
+        all_reports = []
+        seen_paths = set()
+
+        # 1. Get reports from database first (authoritative source)
+        try:
+            db_reports = get_claude_reports(limit=limit, agent_type=agent_type_filter)
+            for r in db_reports:
+                all_reports.append(r)
+                seen_paths.add(r.get('path', ''))
+        except Exception as db_error:
+            logger.warning(f"Database query failed, using local scan only: {db_error}")
+
+        # 2. Scan local OneDrive Reports folder (fallback/supplement)
+        # This ensures reports show up even if sync to database failed
+        local_reports_paths = [
+            Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools/Reports",
+            Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools/reports",
+            Path("/Users/vusmac/Library/CloudStorage/OneDrive-Personal/Claude Tools/Reports"),
+        ]
+
+        for reports_base in local_reports_paths:
+            if reports_base.exists():
+                try:
+                    for agent_dir in reports_base.iterdir():
+                        if agent_dir.is_dir() and not agent_dir.name.startswith('.'):
+                            agent_type = agent_dir.name
+
+                            # Apply agent_type filter if specified
+                            if agent_type_filter and agent_type != agent_type_filter:
+                                continue
+
+                            for report_file in agent_dir.glob('*.md'):
+                                relative_path = f"{agent_type}/{report_file.name}"
+
+                                # Skip if already in database results
+                                if relative_path in seen_paths:
+                                    continue
+
+                                # Get file stats
+                                stat = report_file.stat()
+                                created_at = datetime.fromtimestamp(stat.st_mtime)
+
+                                all_reports.append({
+                                    'id': None,  # Local file, no DB id
+                                    'path': relative_path,
+                                    'title': report_file.stem,
+                                    'agent_type': agent_type,
+                                    'size': stat.st_size,
+                                    'created_at': created_at.isoformat(),
+                                    'summary': f'{agent_type} report (local)',
+                                    'content': None,  # Don't load content for list
+                                    'source': 'local'  # Mark as local file
+                                })
+                                seen_paths.add(relative_path)
+                except Exception as scan_error:
+                    logger.warning(f"Error scanning {reports_base}: {scan_error}")
+                break  # Only use first existing path
+
+        # Sort by created_at descending, apply limit
+        all_reports.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        all_reports = all_reports[:limit]
 
         return jsonify({
             'success': True,
-            'reports': reports,
-            'count': len(reports)
+            'reports': all_reports,
+            'count': len(all_reports)
         })
 
     except Exception as e:
@@ -629,12 +693,14 @@ def save_report():
 @app.route('/AgentGarden/api/reports/view/<path:report_path>', methods=['GET'])
 def view_report(report_path):
     """
-    View a Claude-generated report from database
+    View a Claude-generated report (HYBRID: database + local file fallback)
     Path format: {agent_type}/{report_title}.md
     Returns: Markdown content as plain text
     """
     try:
         from agent_garden.src.core.database import get_db, ClaudeReport
+        from pathlib import Path
+        from flask import Response
 
         # Parse path to extract agent_type and report_title
         # Example: "sales_analysis/report_20260102_081250.md"
@@ -646,26 +712,34 @@ def view_report(report_path):
         filename = parts[1]
         report_title = filename.replace('.md', '')
 
-        # Query database for report
+        # 1. Try database first
         db = get_db()
-        if not db:
-            return "Database unavailable", 500
+        if db:
+            try:
+                report = db.query(ClaudeReport).filter(
+                    ClaudeReport.agent_type == agent_type,
+                    ClaudeReport.report_title == report_title
+                ).first()
 
-        try:
-            report = db.query(ClaudeReport).filter(
-                ClaudeReport.agent_type == agent_type,
-                ClaudeReport.report_title == report_title
-            ).first()
+                if report:
+                    return Response(report.report_content, mimetype='text/markdown')
+            finally:
+                db.close()
 
-            if not report:
-                return f"Report not found: {agent_type}/{report_title}", 404
+        # 2. Fallback to local file
+        local_reports_paths = [
+            Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools/Reports",
+            Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools/reports",
+            Path("/Users/vusmac/Library/CloudStorage/OneDrive-Personal/Claude Tools/Reports"),
+        ]
 
-            # Return markdown content as plain text
-            from flask import Response
-            return Response(report.report_content, mimetype='text/markdown')
+        for reports_base in local_reports_paths:
+            local_file = reports_base / agent_type / filename
+            if local_file.exists():
+                content = local_file.read_text(encoding='utf-8')
+                return Response(content, mimetype='text/markdown')
 
-        finally:
-            db.close()
+        return f"Report not found: {agent_type}/{report_title}", 404
 
     except Exception as e:
         logger.error(f"Error viewing report: {e}")
