@@ -797,6 +797,182 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
+        /* Schedule Presets */
+        .schedule-presets {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .schedule-preset {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.6rem 0.8rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 65px;
+        }
+
+        .schedule-preset:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .schedule-preset.selected {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 157, 0.1);
+            box-shadow: 0 0 20px rgba(0, 255, 157, 0.2);
+        }
+
+        .schedule-preset .preset-icon {
+            font-size: 1.25rem;
+        }
+
+        .schedule-preset .preset-label {
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+
+        .schedule-preset.selected .preset-label {
+            color: var(--neon-green);
+        }
+
+        /* Schedule Time Picker */
+        .schedule-time-picker {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .time-picker-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+
+        .time-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            min-width: 50px;
+        }
+
+        .time-select {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            padding: 0.5rem 0.75rem;
+            color: var(--text-primary);
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .time-select:hover {
+            border-color: var(--neon-blue);
+        }
+
+        .time-select:focus {
+            outline: none;
+            border-color: var(--neon-green);
+            box-shadow: 0 0 0 2px rgba(0, 255, 157, 0.15);
+        }
+
+        .time-separator {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: bold;
+        }
+
+        .time-ampm {
+            min-width: 55px;
+        }
+
+        /* Schedule Day Picker */
+        .schedule-day-picker {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .day-picker-row {
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .day-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            padding: 0.4rem 0.6rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .day-checkbox:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .day-checkbox:has(input:checked) {
+            background: rgba(0, 255, 157, 0.15);
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        .day-checkbox input {
+            accent-color: var(--neon-green);
+            cursor: pointer;
+        }
+
+        /* Schedule Custom Input */
+        .schedule-custom-input {
+            margin-top: 0.75rem;
+        }
+
+        /* Schedule Preview */
+        .schedule-preview {
+            margin-top: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: rgba(0, 255, 157, 0.1);
+            border: 1px solid var(--neon-green);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .schedule-preview .preview-icon {
+            font-size: 1rem;
+        }
+
+        .schedule-preview .preview-text {
+            font-size: 0.85rem;
+            color: var(--neon-green);
+            font-weight: 500;
+        }
+
         /* Format Picker */
         .format-picker {
             display: flex;
@@ -1590,18 +1766,111 @@
                     </div>
 
                     <div class="form-group">
-                        <label class="form-label" for="scheduleCron">Schedule (Optional)</label>
-                        <input
-                            class="form-input"
-                            type="text"
-                            id="scheduleCron"
-                            placeholder="0 9 * * *"
-                            oninput="validateCron(this.value)"
-                        />
-                        <span class="form-hint">Cron format: "0 9 * * *" = Daily at 9 AM</span>
-                        <div class="cron-preview" id="cronPreview">
-                            <div>✅ Valid cron expression</div>
-                            <div class="cron-times" id="cronTimes"></div>
+                        <label class="form-label">Schedule (Optional)</label>
+
+                        <!-- Schedule Preset Buttons -->
+                        <div class="schedule-presets" id="schedulePresets">
+                            <div class="schedule-preset selected" data-schedule="" onclick="selectSchedulePreset('')">
+                                <span class="preset-icon">⚡</span>
+                                <span class="preset-label">Run Once</span>
+                            </div>
+                            <div class="schedule-preset" data-schedule="daily" onclick="selectSchedulePreset('daily')">
+                                <span class="preset-icon">☀️</span>
+                                <span class="preset-label">Daily</span>
+                            </div>
+                            <div class="schedule-preset" data-schedule="weekly" onclick="selectSchedulePreset('weekly')">
+                                <span class="preset-icon">📅</span>
+                                <span class="preset-label">Weekly</span>
+                            </div>
+                            <div class="schedule-preset" data-schedule="hourly" onclick="selectSchedulePreset('hourly')">
+                                <span class="preset-icon">⏰</span>
+                                <span class="preset-label">Hourly</span>
+                            </div>
+                            <div class="schedule-preset" data-schedule="custom" onclick="selectSchedulePreset('custom')">
+                                <span class="preset-icon">⚙️</span>
+                                <span class="preset-label">Custom</span>
+                            </div>
+                        </div>
+
+                        <!-- Time Picker (shown for daily/weekly) -->
+                        <div class="schedule-time-picker" id="scheduleTimePicker" style="display: none;">
+                            <div class="time-picker-row">
+                                <label class="time-label">Time:</label>
+                                <select class="time-select" id="scheduleHour" onchange="updateSchedulePreview()">
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4">4</option>
+                                    <option value="5">5</option>
+                                    <option value="6">6</option>
+                                    <option value="7">7</option>
+                                    <option value="8">8</option>
+                                    <option value="9" selected>9</option>
+                                    <option value="10">10</option>
+                                    <option value="11">11</option>
+                                    <option value="12">12</option>
+                                </select>
+                                <span class="time-separator">:</span>
+                                <select class="time-select" id="scheduleMinute" onchange="updateSchedulePreview()">
+                                    <option value="0" selected>00</option>
+                                    <option value="15">15</option>
+                                    <option value="30">30</option>
+                                    <option value="45">45</option>
+                                </select>
+                                <select class="time-select time-ampm" id="scheduleAmPm" onchange="updateSchedulePreview()">
+                                    <option value="AM" selected>AM</option>
+                                    <option value="PM">PM</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Day Picker (shown for weekly) -->
+                        <div class="schedule-day-picker" id="scheduleDayPicker" style="display: none;">
+                            <label class="time-label">Repeat on:</label>
+                            <div class="day-picker-row">
+                                <label class="day-checkbox">
+                                    <input type="checkbox" value="1" onchange="updateSchedulePreview()"> Mon
+                                </label>
+                                <label class="day-checkbox">
+                                    <input type="checkbox" value="2" onchange="updateSchedulePreview()"> Tue
+                                </label>
+                                <label class="day-checkbox">
+                                    <input type="checkbox" value="3" onchange="updateSchedulePreview()"> Wed
+                                </label>
+                                <label class="day-checkbox">
+                                    <input type="checkbox" value="4" onchange="updateSchedulePreview()"> Thu
+                                </label>
+                                <label class="day-checkbox">
+                                    <input type="checkbox" value="5" onchange="updateSchedulePreview()"> Fri
+                                </label>
+                                <label class="day-checkbox">
+                                    <input type="checkbox" value="6" onchange="updateSchedulePreview()"> Sat
+                                </label>
+                                <label class="day-checkbox">
+                                    <input type="checkbox" value="0" onchange="updateSchedulePreview()"> Sun
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Custom Cron Input (shown for custom) -->
+                        <div class="schedule-custom-input" id="scheduleCustomInput" style="display: none;">
+                            <input
+                                class="form-input"
+                                type="text"
+                                id="scheduleCronCustom"
+                                placeholder="0 9 * * *"
+                                oninput="updateSchedulePreview()"
+                            />
+                            <span class="form-hint">Cron format: minute hour day month weekday</span>
+                        </div>
+
+                        <!-- Hidden field for actual cron value -->
+                        <input type="hidden" id="scheduleCron" value="">
+
+                        <!-- Schedule Preview -->
+                        <div class="schedule-preview" id="schedulePreview" style="display: none;">
+                            <span class="preview-icon">📋</span>
+                            <span class="preview-text" id="schedulePreviewText"></span>
                         </div>
                     </div>
 
@@ -2504,7 +2773,16 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
                     document.getElementById('taskType').value = '';
                     document.getElementById('taskPrompt').value = '';
                     document.getElementById('scheduleCron').value = '';
-                    document.getElementById('cronPreview').classList.remove('active');
+
+                    // Reset schedule picker to "Run Once"
+                    selectSchedulePreset('');
+                    document.getElementById('scheduleHour').value = '9';
+                    document.getElementById('scheduleMinute').value = '0';
+                    document.getElementById('scheduleAmPm').value = 'AM';
+                    document.querySelectorAll('.day-checkbox input').forEach(cb => cb.checked = false);
+                    if (document.getElementById('scheduleCronCustom')) {
+                        document.getElementById('scheduleCronCustom').value = '';
+                    }
 
                     // Reset format to default (md)
                     selectFormat('md');
@@ -2520,30 +2798,171 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
             }
         }
 
-        // Cron validation (simplified)
-        function validateCron(cronExpression) {
-            const preview = document.getElementById('cronPreview');
-            const timesDiv = document.getElementById('cronTimes');
+        // Schedule Picker State
+        let currentScheduleType = '';  // '', 'daily', 'weekly', 'hourly', 'custom'
 
-            if (!cronExpression.trim()) {
-                preview.classList.remove('active');
+        // Select schedule preset
+        function selectSchedulePreset(type) {
+            currentScheduleType = type;
+
+            // Update preset button styles
+            document.querySelectorAll('.schedule-preset').forEach(btn => {
+                btn.classList.remove('selected');
+                if (btn.dataset.schedule === type) {
+                    btn.classList.add('selected');
+                }
+            });
+
+            // Show/hide relevant pickers
+            const timePicker = document.getElementById('scheduleTimePicker');
+            const dayPicker = document.getElementById('scheduleDayPicker');
+            const customInput = document.getElementById('scheduleCustomInput');
+            const preview = document.getElementById('schedulePreview');
+
+            // Hide all first
+            timePicker.style.display = 'none';
+            dayPicker.style.display = 'none';
+            customInput.style.display = 'none';
+            preview.style.display = 'none';
+
+            // Show relevant sections based on type
+            if (type === 'daily') {
+                timePicker.style.display = 'block';
+            } else if (type === 'weekly') {
+                timePicker.style.display = 'block';
+                dayPicker.style.display = 'block';
+            } else if (type === 'custom') {
+                customInput.style.display = 'block';
+            }
+
+            // Update the schedule preview and hidden field
+            updateSchedulePreview();
+        }
+
+        // Update schedule preview and generate cron expression
+        function updateSchedulePreview() {
+            const preview = document.getElementById('schedulePreview');
+            const previewText = document.getElementById('schedulePreviewText');
+            const cronField = document.getElementById('scheduleCron');
+
+            let cronExpression = '';
+            let humanReadable = '';
+
+            if (currentScheduleType === '') {
+                // Run once - no schedule
+                cronField.value = '';
+                preview.style.display = 'none';
                 return;
             }
 
-            // Basic validation (5 fields)
-            const parts = cronExpression.trim().split(/\s+/);
-            if (parts.length === 5) {
-                preview.classList.add('active');
+            if (currentScheduleType === 'hourly') {
+                cronExpression = '0 * * * *';
+                humanReadable = 'Will run every hour at minute 0';
+            }
 
-                // Simple interpretation (would need proper library for accurate times)
-                let interpretation = '';
-                if (cronExpression === '0 9 * * *') interpretation = 'Daily at 9:00 AM';
-                else if (cronExpression === '0 * * * *') interpretation = 'Every hour';
-                else if (cronExpression === '0 0 * * 0') interpretation = 'Weekly on Sunday at midnight';
-                else interpretation = 'Custom schedule';
+            if (currentScheduleType === 'daily' || currentScheduleType === 'weekly') {
+                const hour24 = getSelectedHour24();
+                const minute = document.getElementById('scheduleMinute').value;
+                const timeStr = formatTime12h(hour24, minute);
 
-                timesDiv.innerHTML = `Schedule: ${interpretation}`;
+                if (currentScheduleType === 'daily') {
+                    cronExpression = `${minute} ${hour24} * * *`;
+                    humanReadable = `Will run every day at ${timeStr}`;
+                } else {
+                    // Weekly - get selected days
+                    const selectedDays = getSelectedDays();
+                    if (selectedDays.length === 0) {
+                        cronField.value = '';
+                        preview.style.display = 'none';
+                        return;
+                    }
+                    const dayOfWeek = selectedDays.join(',');
+                    cronExpression = `${minute} ${hour24} * * ${dayOfWeek}`;
+                    humanReadable = `Will run ${formatDayNames(selectedDays)} at ${timeStr}`;
+                }
+            }
+
+            if (currentScheduleType === 'custom') {
+                const customCron = document.getElementById('scheduleCronCustom').value.trim();
+                if (!customCron) {
+                    cronField.value = '';
+                    preview.style.display = 'none';
+                    return;
+                }
+                // Validate cron format (5 parts)
+                const parts = customCron.split(/\s+/);
+                if (parts.length !== 5) {
+                    cronField.value = '';
+                    preview.style.display = 'none';
+                    return;
+                }
+                cronExpression = customCron;
+                humanReadable = `Custom schedule: ${customCron}`;
+            }
+
+            // Update hidden field and preview
+            cronField.value = cronExpression;
+            previewText.textContent = humanReadable;
+            preview.style.display = 'flex';
+        }
+
+        // Get selected hour in 24h format
+        function getSelectedHour24() {
+            let hour = parseInt(document.getElementById('scheduleHour').value);
+            const ampm = document.getElementById('scheduleAmPm').value;
+
+            // Convert 12-hour to 24-hour format
+            if (ampm === 'AM') {
+                // 12 AM = 0, 1-11 AM = 1-11
+                if (hour === 12) hour = 0;
             } else {
+                // 12 PM = 12, 1-11 PM = 13-23
+                if (hour !== 12) hour += 12;
+            }
+            return hour;
+        }
+
+        // Format time in 12h format
+        function formatTime12h(hour24, minute) {
+            let hour12 = hour24 % 12;
+            if (hour12 === 0) hour12 = 12;
+            const ampm = hour24 < 12 ? 'AM' : 'PM';
+            const minStr = minute.toString().padStart(2, '0');
+            return `${hour12}:${minStr} ${ampm}`;
+        }
+
+        // Get selected days from checkboxes
+        function getSelectedDays() {
+            const checkboxes = document.querySelectorAll('.day-checkbox input:checked');
+            return Array.from(checkboxes).map(cb => cb.value);
+        }
+
+        // Format day names for display
+        function formatDayNames(dayNumbers) {
+            const dayNames = {
+                '0': 'Sunday', '1': 'Monday', '2': 'Tuesday', '3': 'Wednesday',
+                '4': 'Thursday', '5': 'Friday', '6': 'Saturday'
+            };
+
+            if (dayNumbers.length === 7) return 'every day';
+            if (dayNumbers.length === 5 && !dayNumbers.includes('0') && !dayNumbers.includes('6')) {
+                return 'weekdays';
+            }
+            if (dayNumbers.length === 2 && dayNumbers.includes('0') && dayNumbers.includes('6')) {
+                return 'weekends';
+            }
+
+            const names = dayNumbers.map(d => dayNames[d]);
+            if (names.length === 1) return `every ${names[0]}`;
+            if (names.length === 2) return `every ${names[0]} and ${names[1]}`;
+            return `every ${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+        }
+
+        // Legacy function for backwards compatibility (not used in new UI)
+        function validateCron(cronExpression) {
+            // This function is kept for any external calls but is not used in the new UI
+            const preview = document.getElementById('cronPreview');
+            if (preview) {
                 preview.classList.remove('active');
             }
         }
