@@ -1,0 +1,220 @@
+{% extends "wiki_base.html" %}
+
+{% block title %}Reorder Logic System{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('wiki.static', filename='decision_tree.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="dt-app">
+    <!-- Top Bar -->
+    <header class="dt-topbar">
+        <div class="dt-brand">
+            <div class="dt-logo">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/>
+                    <path d="M6 21V9a9 9 0 0 0 9 9h6"/>
+                </svg>
+            </div>
+            <div class="dt-title">
+                <h1>Reorder Logic System</h1>
+                <span class="dt-subtitle">One Tree, Many Configurations</span>
+            </div>
+        </div>
+
+        <div class="dt-mode-tabs">
+            <button class="mode-tab active" data-mode="simulation">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                </svg>
+                Simulation
+            </button>
+            <button class="mode-tab" data-mode="logic_editor">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+                </svg>
+                Master Logic
+            </button>
+            <button class="mode-tab" data-mode="vendor_editor">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+                Vendor Config
+            </button>
+        </div>
+    </header>
+
+    <div class="dt-main">
+        <!-- SIMULATION VIEW -->
+        <div id="simulation-view" class="dt-view active">
+            <!-- Left Sidebar -->
+            <aside class="dt-sidebar">
+                <!-- 1. Select Vendor -->
+                <div class="sidebar-section">
+                    <h2 class="section-title">1. Select Vendor</h2>
+                    <div class="vendor-grid" id="vendor-grid">
+                        {% for vendor in vendors %}
+                        <button class="vendor-btn" data-vendor-id="{{ vendor.id }}">
+                            {{ vendor.name }}
+                        </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- 2. Active Rules -->
+                <div class="sidebar-section rules-section" id="rules-section" style="display: none;">
+                    <h2 class="section-title">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
+                        Active Rules: <span id="active-vendor-name">--</span>
+                    </h2>
+                    <div class="rules-box">
+                        <div class="rule-row">
+                            <span class="rule-label">Threshold:</span>
+                            <span class="rule-value" id="rule-threshold">--</span>
+                        </div>
+                        <div class="rule-row">
+                            <span class="rule-label">Cascade Allowed:</span>
+                            <span class="rule-value" id="rule-cascade">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Test Data -->
+                <div class="sidebar-section" id="inputs-section" style="display: none;">
+                    <h2 class="section-title">2. Test Data</h2>
+
+                    <div class="input-group">
+                        <div class="input-header">
+                            <label>Years in Stock</label>
+                            <span class="input-value" id="yis-value">0.15</span>
+                        </div>
+                        <input type="range" id="yis-slider" class="slider" min="0" max="0.6" step="0.05" value="0.15">
+                    </div>
+
+                    <div class="toggle-group">
+                        <span class="toggle-label">Has Larger Sheets?</span>
+                        <button class="toggle-btn active" id="cascade-toggle">
+                            <span class="toggle-knob"></span>
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Canvas -->
+            <main class="dt-canvas">
+                <div class="canvas-wrapper">
+                    <!-- Grid Background -->
+                    <div class="canvas-grid"></div>
+
+                    <!-- SVG Tree -->
+                    <svg id="tree-svg" class="tree-svg" viewBox="0 0 800 600">
+                        <defs>
+                            <marker id="arrow-active" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#4f46e5"/>
+                            </marker>
+                            <marker id="arrow-inactive" markerWidth="10" markerHeight="7" refX="28" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#e2e8f0"/>
+                            </marker>
+                        </defs>
+                        <g id="edges-layer"></g>
+                        <g id="nodes-layer"></g>
+                    </svg>
+                </div>
+            </main>
+        </div>
+
+        <!-- LOGIC EDITOR VIEW -->
+        <div id="logic-view" class="dt-view editor-view">
+            <div class="editor-header">
+                <div class="editor-info">
+                    <h2>master_logic.json</h2>
+                    <p>Define the shape of the decision tree. Variables like {threshold_years} are resolved at runtime.</p>
+                </div>
+                <button class="btn-apply" id="btn-apply-logic">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Apply Changes
+                </button>
+            </div>
+            <div class="editor-body">
+                <textarea id="logic-editor" class="code-editor" spellcheck="false"></textarea>
+            </div>
+            <div class="editor-error" id="logic-error" style="display: none;"></div>
+        </div>
+
+        <!-- VENDOR EDITOR VIEW -->
+        <div id="vendor-view" class="dt-view editor-view">
+            <div class="editor-header">
+                <div class="editor-info">
+                    <h2>vendors.json</h2>
+                    <p>Configure parameters for each vendor. These values replace placeholders in the master logic.</p>
+                </div>
+                <button class="btn-apply" id="btn-apply-vendors">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Apply Changes
+                </button>
+            </div>
+            <div class="editor-body">
+                <textarea id="vendor-editor" class="code-editor" spellcheck="false"></textarea>
+            </div>
+            <div class="editor-error" id="vendor-error" style="display: none;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Initial Data -->
+<script>
+window.MASTER_LOGIC = {
+    nodes: [
+        { id: "start", label: "Start Evaluation", type: "start", x: 50, y: 5 },
+        { id: "check_stock", label: "Stock < Vendor Threshold?", type: "decision", x: 50, y: 30 },
+        { id: "stock_ok", label: "Stock Sufficient", type: "end", x: 80, y: 50 },
+        { id: "check_cascade", label: "Can Cascade?", type: "decision", x: 20, y: 50 },
+        { id: "cut_sheet", label: "Generate Cut Sheet", type: "end", x: 5, y: 80 },
+        { id: "place_order", label: "Place Vendor Order", type: "end", x: 35, y: 80 }
+    ],
+    edges: [
+        { from: "start", to: "check_stock" },
+        { from: "check_stock", to: "stock_ok", label: "High Stock (>= {threshold_years})", condition: { field: "yearsInStock", operator: ">=", value: "{threshold_years}" } },
+        { from: "check_stock", to: "check_cascade", label: "Low Stock (< {threshold_years})", condition: { field: "yearsInStock", operator: "<", value: "{threshold_years}" } },
+        { from: "check_cascade", to: "cut_sheet", label: "Cascade Possible", condition: { complex_logic: "cascade_check" } },
+        { from: "check_cascade", to: "place_order", label: "Must Buy", condition: { complex_logic: "fallback" } }
+    ]
+};
+
+window.VENDORS = {
+    "Bullseye": {
+        name: "Bullseye",
+        description: "Premium Art Glass",
+        threshold_years: 0.25,
+        allow_cascade: true
+    },
+    "Oceanside": {
+        name: "Oceanside",
+        description: "Standard Fusible",
+        threshold_years: 0.35,
+        allow_cascade: false
+    },
+    "Generic_Importer": {
+        name: "Generic",
+        description: "Budget Clear Glass",
+        threshold_years: 0.10,
+        allow_cascade: false
+    }
+};
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('wiki.static', filename='decision_tree.js') }}"></script>
+{% endblock %}

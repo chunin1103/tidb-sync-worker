@@ -1,4 +1,4 @@
-#!/bin/bash
+    #!/bin/bash
 
 # Start Celery Beat Scheduler for Agent Garden
 # Triggers scheduled tasks (morning reports, health checks, etc.)
