@@ -4,6 +4,35 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-06: Cross-Platform Claude Executor (Windows + Mac)
+**Status**: Completed
+**Files Modified**: claude_executor.py (lines 25-63, 81-82, 865-872)
+**Commits**: 33fa639
+**Problem**: Executor failed on Windows - hardcoded Mac OneDrive path + emoji characters crashed Windows console
+**Approach**: Environment variable detection with fallbacks (vs hardcoded paths per OS)
+**Solution**:
+1. Added `get_onedrive_path()` with priority: `CLAUDE_TOOLS_PATH` env var → Windows `OneDrive`/`OneDriveConsumer`/`OneDriveCommercial` env vars → common path existence check → default fallback
+2. Replaced all emoji characters (📁✅❌🚀 etc.) with ASCII tags ([DIR], [OK], [ERROR], [START] etc.) for Windows console compatibility
+3. Updated validation to show helpful override instructions: `set CLAUDE_TOOLS_PATH=C:\path\to\Claude Tools`
+**Testing**: Verified on Windows - detected `C:\Users\ASUS\OneDrive\Claude Tools` via `OneDrive` env var, executor runs without errors
+
+---
+
+## 2026-01-05: Timezone Settings Modal - User-Configurable Timezone
+**Status**: Completed
+**Files Modified**: templates/index.html (lines 204-311, 1537, 2021-2049, 2059-2060, 2085, 2826-2974), unified_app.py (lines 918-989)
+**Commits**: 3d9a32b
+**Problem**: Users couldn't change timezone - had to manually edit database
+**Approach**: Settings Modal (click header timezone) vs Drawer vs Inline dropdown - chose modal for simplicity + extensibility
+**Solution**:
+1. Made timezone indicator clickable with 🌍 emoji + hover effect showing ⚙️
+2. Created settings modal with dropdown grouped by region (32 timezones across 5 regions)
+3. Live clock preview updates every second when selecting timezone
+4. Added 3 API endpoints: `GET /AgentGarden/get_settings`, `GET /AgentGarden/get_timezones`, `POST /AgentGarden/update_timezone`
+**Testing**: Syntax verified, deployed to Render
+
+---
+
 ## 2026-01-05: Fix Timezone Display for Task Timestamps
 **Status**: Completed
 **Files Modified**: templates/index.html (lines 1920-1951, 2378-2386, 3079-3095, 1535-1538)
