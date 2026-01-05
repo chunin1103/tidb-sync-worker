@@ -916,6 +916,80 @@ def report_info(report_path):
 
 
 # =============================================================================
+# TIMEZONE SETTINGS ROUTES
+# =============================================================================
+
+@app.route('/AgentGarden/get_settings', methods=['GET'])
+def get_settings():
+    """
+    Get system settings including timezone configuration.
+    """
+    try:
+        from agent_garden.src.core.database import get_system_settings
+        settings = get_system_settings()
+        return jsonify(settings)
+    except Exception as e:
+        logger.error(f"Error getting settings: {e}")
+        return jsonify({'error': str(e), 'timezone': 'America/Los_Angeles'}), 500
+
+
+@app.route('/AgentGarden/get_timezones', methods=['GET'])
+def get_timezones():
+    """
+    Get list of available timezones organized by region.
+    """
+    try:
+        from agent_garden.src.core.database import get_available_timezones
+        timezones = get_available_timezones()
+        return jsonify(timezones)
+    except Exception as e:
+        logger.error(f"Error getting timezones: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/AgentGarden/update_timezone', methods=['POST'])
+def update_timezone_route():
+    """
+    Update the system timezone.
+
+    Request Body:
+    {
+        "timezone": "Asia/Bangkok"
+    }
+    """
+    try:
+        from agent_garden.src.core.database import update_timezone, get_available_timezones
+
+        data = request.get_json()
+        new_timezone = data.get('timezone')
+
+        if not new_timezone:
+            return jsonify({'error': 'Timezone is required'}), 400
+
+        # Validate timezone
+        valid_timezones = [tz['value'] for tz in get_available_timezones()]
+        if new_timezone not in valid_timezones:
+            return jsonify({'error': 'Invalid timezone'}), 400
+
+        # Update timezone in database
+        success = update_timezone(new_timezone)
+
+        if success:
+            logger.info(f"Timezone updated to: {new_timezone}")
+            return jsonify({
+                'success': True,
+                'message': 'Timezone updated successfully',
+                'new_timezone': new_timezone
+            })
+        else:
+            return jsonify({'error': 'Failed to update timezone'}), 500
+
+    except Exception as e:
+        logger.error(f"Error updating timezone: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# =============================================================================
 # FAVICON ROUTE (Prevent 404 errors)
 # =============================================================================
 
