@@ -1928,7 +1928,11 @@
         // Load timezone from settings
         async function loadTimezone() {
             try {
-                const response = await fetch('/get_settings');
+                // Try AgentGarden path first (Render), then root path (local)
+                let response = await fetch('/AgentGarden/get_settings');
+                if (!response.ok) {
+                    response = await fetch('/get_settings');
+                }
                 if (response.ok) {
                     const settings = await response.json();
                     if (settings.timezone) {
