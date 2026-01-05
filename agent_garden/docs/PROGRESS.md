@@ -4,6 +4,21 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-05: Fix Timezone Display for Task Timestamps
+**Status**: Completed
+**Files Modified**: templates/index.html (lines 1920-1951, 2378-2386, 3079-3095, 1535-1538)
+**Commits**: f8a910c, 04ba333, ef9a530
+**Problem**: Task timestamps showed UTC time (e.g., 01:04 AM) instead of configured timezone (Asia/Ho_Chi_Minh, should show 08:04 AM)
+**Root Cause**: `formatDateTime()` didn't apply timezone; API timestamps lacked timezone suffix causing JS to interpret as local time
+**Solution**:
+1. Load timezone from `/AgentGarden/get_settings` on page load into `appTimezone` variable
+2. Apply `timeZone: appTimezone` option to all `toLocaleString()` calls
+3. Parse timestamps as UTC by appending 'Z' suffix if missing timezone info
+4. Added timezone indicator in header: "Last refresh: 08:27 AM (Asia/Ho_Chi_Minh)"
+**Testing**: Verified on Render - Task #58 now correctly shows 08:04 AM instead of 01:04 AM
+
+---
+
 ## 2026-01-01: Agent Garden UI Redesign - Gemini → Claude Dashboard
 **Status**: Completed
 **Files Modified**: templates/index.html (1,112 lines - complete rebuild), src/core/app.py (added /api/reports/view route)
