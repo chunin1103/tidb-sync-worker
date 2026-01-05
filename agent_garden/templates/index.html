@@ -2377,7 +2377,12 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
 
                 if (data.success && data.tasks && data.tasks.length > 0) {
                     const activities = data.tasks.map(task => {
-                        const time = new Date(task.updated_at || task.created_at);
+                        // Ensure timestamp is treated as UTC
+                        let timestamp = task.updated_at || task.created_at;
+                        if (typeof timestamp === 'string' && !timestamp.includes('Z') && !timestamp.includes('+')) {
+                            timestamp = timestamp.replace(' ', 'T') + 'Z';
+                        }
+                        const time = new Date(timestamp);
                         const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: appTimezone });
 
                         let action = 'Task created';
@@ -3078,7 +3083,13 @@ ${task.schedule_cron ? 'Schedule: ' + task.schedule_cron : ''}</div>
         // Utility functions
         function formatDateTime(timestamp) {
             if (!timestamp) return 'N/A';
-            const date = new Date(timestamp);
+            // Ensure timestamp is treated as UTC if no timezone info
+            let dateStr = timestamp;
+            if (typeof timestamp === 'string' && !timestamp.includes('Z') && !timestamp.includes('+')) {
+                // Add 'Z' suffix to indicate UTC
+                dateStr = timestamp.replace(' ', 'T') + 'Z';
+            }
+            const date = new Date(dateStr);
             return date.toLocaleString('en-US', {
                 month: 'short',
                 day: 'numeric',
