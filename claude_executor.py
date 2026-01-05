@@ -553,8 +553,14 @@ Use the Write tool to save the markdown content."""
 
         return tool_calls
 
-    def _stream_claude_execution(self, command: list, cwd: str, timeout: int = 300) -> tuple:
+    def _stream_claude_execution(self, command: list, cwd: str, prompt: str = None, timeout: int = 300) -> tuple:
         """Execute Claude Code CLI and parse debug logs for detailed tool usage
+
+        Args:
+            command: Claude CLI command (without prompt - prompt goes via stdin)
+            cwd: Working directory for Claude execution
+            prompt: Prompt to send via stdin (avoids Windows command-line truncation)
+            timeout: Execution timeout in seconds
 
         Returns:
             tuple: (stdout, stderr, returncode, tool_usage_list)
@@ -563,6 +569,8 @@ Use the Write tool to save the markdown content."""
 
         logger.info("[BOT] Starting Claude Code CLI execution...")
         logger.info(f"   Timeout: {timeout}s")
+        if prompt:
+            logger.info(f"   Prompt: {len(prompt)} chars (via stdin)")
 
         # Get existing debug logs before execution
         debug_logs_before = self._get_debug_logs_before()
@@ -572,19 +580,25 @@ Use the Write tool to save the markdown content."""
         tools_used = []  # List of unique tools used
 
         # Use Popen to capture output
+        # On Windows, use shell=True because Claude is installed as .cmd wrapper (not .exe)
+        use_shell = sys.platform == 'win32'
+
         process = subprocess.Popen(
             command,
             cwd=cwd,
+            stdin=subprocess.PIPE if prompt else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            shell=use_shell
         )
 
-        logger.info("   📝 Claude is working...")
+        logger.info("   [WORK] Claude is working...")
 
         # Wait for process with timeout
+        # Prompt is piped via stdin to avoid Windows command-line truncation issues
         try:
-            stdout, stderr = process.communicate(timeout=timeout)
+            stdout, stderr = process.communicate(input=prompt, timeout=timeout)
             full_output.append(stdout)
             if stderr:
                 error_output.append(stderr)
@@ -714,13 +728,15 @@ Analyze the database context provided and generate the file now:"""
         try:
             # Call Claude Code CLI with auto-approval for automated execution
             # Set working directory to output folder so Claude can write files directly
-            # NOTE: --print flag disabled to allow tool usage (Write, Bash, etc.)
-            command = ['claude', '--dangerously-skip-permissions', claude_prompt]
+            # NOTE: Prompt is passed via stdin (not command-line) to avoid truncation on Windows
+            command = ['claude', '--dangerously-skip-permissions']
 
             # Use streaming execution for detailed logging
+            # Prompt is piped via stdin to handle multi-line prompts correctly on all platforms
             stdout, stderr, returncode, tools_used = self._stream_claude_execution(
                 command,
-                str(output_path)
+                str(output_path),
+                prompt=claude_prompt
             )
 
             if returncode == 0:
@@ -803,9 +819,18 @@ Claude Code CLI execution timed out after 5 minutes.
                     f.write(f"# ERROR: File Not Created\n\n{error_msg}\n\n{full_report}")
                 raise FileNotFoundError(error_msg)
         else:
-            # For markdown/text reports, write the full report content
-            with open(result_file, 'w') as f:
-                f.write(full_report)
+            # For markdown/text reports, check if Claude created the file with actual content
+            if result_file.exists() and result_file.stat().st_size > 200:
+                # Claude wrote meaningful content - read it and use as the report
+                with open(result_file, 'r', encoding='utf-8') as f:
+                    claude_content = f.read()
+                logger.info(f"[OK] Using Claude's markdown content ({len(claude_content)} chars)")
+                # Keep Claude's content as-is (don't wrap in template)
+            else:
+                # Claude didn't create the file or it's too small - use stdout wrapped in template
+                with open(result_file, 'w', encoding='utf-8') as f:
+                    f.write(full_report)
+                logger.info(f"[OK] Wrote stdout-based report ({len(full_report)} chars)")
 
         relative_path = str(result_file.relative_to(self.onedrive_base))
 

@@ -4,6 +4,34 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
+## 2026-01-06: Fix Prompt Truncation + Markdown Preservation
+**Status**: Completed
+**Files Modified**: claude_executor.py (lines 556-601, 728-739, 821-833)
+**Problem**: Multi-line prompts truncated on Windows; Claude's markdown reports overwritten with empty template
+**Root Cause**: Command-line args with newlines truncated by shell; executor always overwrote markdown files
+**Approach**: Stdin pipe (vs command-line arg) + preserve Claude's file if content > 200 bytes
+**Solution**:
+1. Added `prompt` parameter to `_stream_claude_execution()`, pipe via stdin (lines 589, 601)
+2. Changed call site: `prompt=claude_prompt` instead of including in command (line 739)
+3. For markdown: Check if Claude created file with content, preserve it (lines 821-833)
+**Testing**: Full 3257-char prompts delivered, Claude generates 2089-char reports with real data tables
+
+---
+
+## 2026-01-06: Fix Claude CLI subprocess on Windows (shell=True)
+**Status**: Completed
+**Files Modified**: claude_executor.py (lines 575-587)
+**Problem**: Claude CLI failed with `[WinError 2] The system cannot find the file specified` on Windows
+**Root Cause**: Python `subprocess.Popen(['claude', ...])` doesn't find `.cmd` files on Windows - only `.exe`
+**Approach**: Option A (`shell=True` on Windows) vs Option B (explicit `claude.cmd`) - chose A for flexibility
+**Solution**:
+1. Added `use_shell = sys.platform == 'win32'` detection (line 576)
+2. Added `shell=use_shell` parameter to subprocess.Popen (line 584)
+3. Fixed remaining emoji on line 587: `📝` → `[WORK]`
+**Testing**: Claude CLI now executes successfully on Windows (exit code: 0), reports generated and synced
+
+---
+
 ## 2026-01-06: Cross-Platform Claude Executor (Windows + Mac)
 **Status**: Completed
 **Files Modified**: claude_executor.py (lines 25-63, 81-82, 865-872)
