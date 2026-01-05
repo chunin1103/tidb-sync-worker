@@ -21,8 +21,46 @@ from typing import Dict, Any, Optional
 # Configuration
 MCP_SERVER = os.getenv('MCP_SERVER', 'https://gpt-mcp.onrender.com')
 POLL_INTERVAL = int(os.getenv('POLL_INTERVAL', '30'))  # seconds
-# Reports should be saved in Claude Tools folder
-ONEDRIVE_BASE = Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools"
+
+# Cross-platform OneDrive path detection
+def get_onedrive_path():
+    """Detect OneDrive path on Windows or Mac with robust fallbacks"""
+
+    # 1. Check for explicit override via environment variable
+    if os.getenv('CLAUDE_TOOLS_PATH'):
+        return Path(os.getenv('CLAUDE_TOOLS_PATH'))
+
+    # 2. On Windows, check the OneDrive environment variable (set by OneDrive app)
+    if sys.platform == 'win32':
+        # Windows sets these env vars automatically
+        onedrive_env = os.getenv('OneDrive') or os.getenv('OneDriveConsumer') or os.getenv('OneDriveCommercial')
+        if onedrive_env:
+            return Path(onedrive_env) / "Claude Tools"
+
+        # Fallback: check common Windows OneDrive locations
+        possible_paths = [
+            Path.home() / "OneDrive" / "Claude Tools",
+            Path.home() / "OneDrive - Personal" / "Claude Tools",
+        ]
+        for path in possible_paths:
+            if path.exists():
+                return path
+        # Default if nothing found
+        return Path.home() / "OneDrive" / "Claude Tools"
+
+    else:
+        # Mac: check CloudStorage folder for OneDrive variants
+        cloud_storage = Path.home() / "Library/CloudStorage"
+        if cloud_storage.exists():
+            for folder in cloud_storage.iterdir():
+                if folder.name.startswith("OneDrive"):
+                    claude_tools = folder / "Claude Tools"
+                    if claude_tools.exists():
+                        return claude_tools
+        # Default Mac path
+        return Path.home() / "Library/CloudStorage/OneDrive-Personal/Claude Tools"
+
+ONEDRIVE_BASE = get_onedrive_path()
 
 # Setup logging
 logging.basicConfig(
@@ -43,8 +81,8 @@ class ClaudeExecutor:
         self.mcp_server = MCP_SERVER
         self.onedrive_base = ONEDRIVE_BASE
         self.project_root = Path(__file__).parent
-        logger.info(f"📁 OneDrive base: {self.onedrive_base}")
-        logger.info(f"📂 Project root: {self.project_root}")
+        logger.info(f"[DIR] OneDrive base: {self.onedrive_base}")
+        logger.info(f"[FOLDER] Project root: {self.project_root}")
 
     def poll_ready_tasks(self) -> list:
         """Poll MCP server for tasks ready to execute"""
@@ -62,7 +100,7 @@ class ClaudeExecutor:
         try:
             response = requests.post(f"{self.mcp_server}/AgentGarden/tasks/{task_id}/start", timeout=10)
             response.raise_for_status()
-            logger.info(f"📋 Task {task_id} started")
+            logger.info(f"[TASK] Task {task_id} started")
             return True
         except requests.exceptions.RequestException as e:
             logger.error(f"Error marking task {task_id} as started: {e}")
@@ -85,7 +123,7 @@ class ClaudeExecutor:
             )
             response.raise_for_status()
             tools_str = f" (tools: {', '.join(tool_usage)})" if tool_usage else ""
-            logger.info(f"✅ Task {task_id} completed: {summary}{tools_str}")
+            logger.info(f"[OK] Task {task_id} completed: {summary}{tools_str}")
             return True
         except requests.exceptions.RequestException as e:
             logger.error(f"Error marking task {task_id} as completed: {e}")
@@ -100,7 +138,7 @@ class ClaudeExecutor:
                 timeout=10
             )
             response.raise_for_status()
-            logger.error(f"❌ Task {task_id} failed: {error_log}")
+            logger.error(f"[ERROR] Task {task_id} failed: {error_log}")
             return True
         except requests.exceptions.RequestException as e:
             logger.error(f"Error marking task {task_id} as failed: {e}")
@@ -129,14 +167,14 @@ class ClaudeExecutor:
 
             if result.get('success'):
                 report_id = result.get('report_id')
-                logger.info(f"☁️  Report synced to server (ID: {report_id})")
+                logger.info(f"[CLOUD]  Report synced to server (ID: {report_id})")
                 return True
             else:
-                logger.warning(f"⚠️  Server returned error: {result.get('error')}")
+                logger.warning(f"[WARN]  Server returned error: {result.get('error')}")
                 return False
 
         except requests.exceptions.RequestException as e:
-            logger.warning(f"⚠️  Failed to sync report to server: {e}")
+            logger.warning(f"[WARN]  Failed to sync report to server: {e}")
             return False
 
     def execute_task(self, task: Dict[str, Any]):
@@ -146,7 +184,7 @@ class ClaudeExecutor:
         task_json = task['task_json']
         output_format = task.get('output_format', 'md')
 
-        logger.info(f"🚀 Executing task {task_id} ({task_type}) - Format: {output_format}")
+        logger.info(f"[START] Executing task {task_id} ({task_type}) - Format: {output_format}")
 
         # Mark as started
         if not self.mark_task_started(task_id):
@@ -191,7 +229,7 @@ class ClaudeExecutor:
 
     def handle_report_generation(self, task_json: Dict) -> Dict:
         """Handle report generation tasks"""
-        logger.info(f"📊 Generating report: {task_json.get('report_name', 'Unknown')}")
+        logger.info(f"[REPORT] Generating report: {task_json.get('report_name', 'Unknown')}")
 
         # TODO: Implement actual report generation
         # For now, create a placeholder file
@@ -226,7 +264,7 @@ class ClaudeExecutor:
 
     def handle_query_execution(self, task_json: Dict) -> Dict:
         """Handle query execution tasks"""
-        logger.info(f"🔍 Executing query")
+        logger.info(f"[SEARCH] Executing query")
 
         # TODO: Implement query execution via TiDB MCP
         query = task_json.get('query', 'SELECT 1')
@@ -253,7 +291,7 @@ class ClaudeExecutor:
 
     def handle_calculation(self, task_json: Dict) -> Dict:
         """Handle calculation tasks"""
-        logger.info(f"🧮 Running calculation: {task_json.get('calculation_name', 'Unknown')}")
+        logger.info(f"[CALC] Running calculation: {task_json.get('calculation_name', 'Unknown')}")
 
         # TODO: Implement calculation logic
         output_config = task_json.get('output', {})
@@ -326,7 +364,7 @@ class ClaudeExecutor:
 
     def fetch_database_context(self, agent_type: str, prompt: str) -> str:
         """Fetch relevant database context based on agent type and prompt"""
-        logger.info(f"📡 Fetching database context via MCP...")
+        logger.info(f"[POLL] Fetching database context via MCP...")
 
         context_parts = []
 
@@ -348,10 +386,10 @@ class ClaudeExecutor:
                 context_parts.append(f"## Today's Orders\n{json.dumps(today_result, indent=2)}\n")
 
         if context_parts:
-            logger.info(f"✅ Fetched {len(context_parts)} data sections from MCP")
+            logger.info(f"[OK] Fetched {len(context_parts)} data sections from MCP")
             return "\n".join(context_parts)
         else:
-            logger.warning(f"⚠️  No database context fetched")
+            logger.warning(f"[WARN]  No database context fetched")
             return "No database context available"
 
     def _get_format_instructions(self, output_format: str, result_file: Path) -> str:
@@ -523,7 +561,7 @@ Use the Write tool to save the markdown content."""
         """
         import subprocess
 
-        logger.info("🤖 Starting Claude Code CLI execution...")
+        logger.info("[BOT] Starting Claude Code CLI execution...")
         logger.info(f"   Timeout: {timeout}s")
 
         # Get existing debug logs before execution
@@ -552,7 +590,7 @@ Use the Write tool to save the markdown content."""
                 error_output.append(stderr)
             returncode = process.returncode
         except subprocess.TimeoutExpired:
-            logger.error(f"   ⏱️  Claude execution TIMEOUT after {timeout}s - killing process...")
+            logger.error(f"   [TIME]  Claude execution TIMEOUT after {timeout}s - killing process...")
             process.kill()
             stdout, stderr = process.communicate()
             full_output.append(stdout)
@@ -566,7 +604,7 @@ Use the Write tool to save the markdown content."""
 
         # Parse new debug logs for tool usage
         if new_debug_logs:
-            logger.info(f"   📋 Parsing {len(new_debug_logs)} debug log(s) for tool usage...")
+            logger.info(f"   [TASK] Parsing {len(new_debug_logs)} debug log(s) for tool usage...")
 
             all_tool_calls = []
             for log_path in sorted(new_debug_logs, key=lambda p: p.stat().st_mtime):
@@ -575,10 +613,10 @@ Use the Write tool to save the markdown content."""
 
             # Log tool usage summary and collect unique tools
             if all_tool_calls:
-                logger.info(f"   🔧 Tool calls detected: {len(all_tool_calls)}")
+                logger.info(f"   [TOOL] Tool calls detected: {len(all_tool_calls)}")
                 for call_type, tool_name, _ in all_tool_calls:
                     if call_type == 'start':
-                        logger.info(f"      ▶️  {tool_name}")
+                        logger.info(f"      >  {tool_name}")
                         if tool_name not in tools_used:
                             tools_used.append(tool_name)
                     elif call_type == 'mcp':
@@ -587,18 +625,18 @@ Use the Write tool to save the markdown content."""
                         if mcp_tool not in tools_used:
                             tools_used.append(mcp_tool)
                     elif call_type == 'mcp_done':
-                        logger.info(f"      ✅ MCP completed: {tool_name}")
+                        logger.info(f"      [OK] MCP completed: {tool_name}")
             else:
-                logger.info("   ℹ️  No tool calls found in debug logs")
+                logger.info("   [INFO]  No tool calls found in debug logs")
         else:
-            logger.info("   ℹ️  No new debug logs created")
+            logger.info("   [INFO]  No new debug logs created")
 
         if error_output:
-            logger.warning(f"   ⚠️  Stderr: {''.join(error_output)[:200]}")
+            logger.warning(f"   [WARN]  Stderr: {''.join(error_output)[:200]}")
 
-        logger.info(f"   {'✅' if returncode == 0 else '❌'} Claude execution finished (exit code: {returncode})")
+        logger.info(f"   {'[OK]' if returncode == 0 else '[ERROR]'} Claude execution finished (exit code: {returncode})")
         if tools_used:
-            logger.info(f"   🛠️  Tools used: {', '.join(tools_used)}")
+            logger.info(f"   [TOOLS]  Tools used: {', '.join(tools_used)}")
 
         return (
             ''.join(full_output).strip(),
@@ -614,9 +652,9 @@ Use the Write tool to save the markdown content."""
         report_type = task_json.get('report_type', 'unknown')
         prompt = task_json.get('prompt', 'No prompt provided')
 
-        logger.info(f"📊 Generating agent report: {report_title} ({agent_type})")
-        logger.info(f"🔧 HYBRID MODE: Direct MCP data fetch + Claude Code CLI analysis")
-        logger.info(f"📄 Output format: {output_format.upper()}")
+        logger.info(f"[REPORT] Generating agent report: {report_title} ({agent_type})")
+        logger.info(f"[TOOL] HYBRID MODE: Direct MCP data fetch + Claude Code CLI analysis")
+        logger.info(f"[DOC] Output format: {output_format.upper()}")
 
         # Initialize tools_used for tracking
         tools_used = []
@@ -706,7 +744,7 @@ Analyze the database context provided and generate the file now:"""
             else:
                 # Error occurred
                 error_msg = stderr if stderr else "Unknown error"
-                logger.error(f"❌ Claude Code CLI failed: {error_msg}")
+                logger.error(f"[ERROR] Claude Code CLI failed: {error_msg}")
 
                 full_report = f"""# {report_title} - ERROR
 
@@ -727,7 +765,7 @@ Claude Code CLI execution failed:
 """
 
         except subprocess.TimeoutExpired:
-            logger.error(f"❌ Claude Code CLI timed out after 5 minutes")
+            logger.error(f"[ERROR] Claude Code CLI timed out after 5 minutes")
             full_report = f"""# {report_title} - TIMEOUT
 
 **Generated**: {datetime.now().isoformat()}
@@ -737,7 +775,7 @@ Claude Code CLI execution timed out after 5 minutes.
 """
 
         except Exception as e:
-            logger.error(f"❌ Failed to execute Claude Code CLI: {e}")
+            logger.error(f"[ERROR] Failed to execute Claude Code CLI: {e}")
             full_report = f"""# {report_title} - ERROR
 
 **Generated**: {datetime.now().isoformat()}
@@ -750,7 +788,7 @@ Claude Code CLI execution timed out after 5 minutes.
         if output_format in ['csv', 'xlsx', 'json']:
             # For data files, Claude should have created the file - verify it exists
             if result_file.exists():
-                logger.info(f"✅ Data file created by Claude: {result_file.name}")
+                logger.info(f"[OK] Data file created by Claude: {result_file.name}")
 
                 # Save execution log separately (don't overwrite the data file!)
                 log_file = result_file.with_suffix(result_file.suffix + '.log')
@@ -759,7 +797,7 @@ Claude Code CLI execution timed out after 5 minutes.
                 logger.info(f"📝 Execution log saved: {log_file.name}")
             else:
                 error_msg = f"Claude did not create the expected file: {result_file.name}"
-                logger.error(f"❌ {error_msg}")
+                logger.error(f"[ERROR] {error_msg}")
                 # Create error report
                 with open(result_file.with_suffix('.error.md'), 'w') as f:
                     f.write(f"# ERROR: File Not Created\n\n{error_msg}\n\n{full_report}")
@@ -771,7 +809,7 @@ Claude Code CLI execution timed out after 5 minutes.
 
         relative_path = str(result_file.relative_to(self.onedrive_base))
 
-        logger.info(f"✅ Agent report saved: {relative_path}")
+        logger.info(f"[OK] Agent report saved: {relative_path}")
 
         # Sync report to server database for UI display
         self.sync_report_to_server(
@@ -791,11 +829,11 @@ Claude Code CLI execution timed out after 5 minutes.
     def run(self):
         """Main execution loop"""
         logger.info("=" * 70)
-        logger.info("🚀 CLAUDE TASK EXECUTOR STARTED")
+        logger.info("[START] CLAUDE TASK EXECUTOR STARTED")
         logger.info("=" * 70)
-        logger.info(f"📡 Polling: {self.mcp_server}")
-        logger.info(f"⏱️  Interval: Every {POLL_INTERVAL} seconds")
-        logger.info(f"📁 OneDrive: {self.onedrive_base}")
+        logger.info(f"[POLL] Polling: {self.mcp_server}")
+        logger.info(f"[TIME]  Interval: Every {POLL_INTERVAL} seconds")
+        logger.info(f"[DIR] OneDrive: {self.onedrive_base}")
         logger.info("=" * 70)
         logger.info("")
 
@@ -805,7 +843,7 @@ Claude Code CLI execution timed out after 5 minutes.
                 tasks = self.poll_ready_tasks()
 
                 if tasks:
-                    logger.info(f"📋 Found {len(tasks)} ready task(s)")
+                    logger.info(f"[TASK] Found {len(tasks)} ready task(s)")
 
                     for task in tasks:
                         self.execute_task(task)
@@ -816,7 +854,7 @@ Claude Code CLI execution timed out after 5 minutes.
             except KeyboardInterrupt:
                 logger.info("")
                 logger.info("=" * 70)
-                logger.info("⏹️  Executor stopped by user")
+                logger.info("[STOP]  Executor stopped by user")
                 logger.info("=" * 70)
                 break
             except Exception as e:
@@ -826,11 +864,11 @@ Claude Code CLI execution timed out after 5 minutes.
 
 def main():
     """Main entry point"""
-    # Validate OneDrive path exists
-    onedrive_path = Path.home() / "Library/CloudStorage/OneDrive-Personal"
-    if not onedrive_path.exists():
-        logger.error(f"❌ OneDrive path not found: {onedrive_path}")
-        logger.info("   Please update ONEDRIVE_BASE path in the script")
+    # Validate Claude Tools path exists (uses robust detection from ONEDRIVE_BASE)
+    if not ONEDRIVE_BASE.exists():
+        logger.error(f"[ERROR] Claude Tools path not found: {ONEDRIVE_BASE}")
+        logger.info("   Set CLAUDE_TOOLS_PATH environment variable to override:")
+        logger.info("   Example: set CLAUDE_TOOLS_PATH=C:\\path\\to\\Claude Tools")
         sys.exit(1)
 
     # Create executor and run
