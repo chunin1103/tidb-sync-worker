@@ -553,7 +553,166 @@ Use the Write tool to save the markdown content."""
 
         return tool_calls
 
-    def _stream_claude_execution(self, command: list, cwd: str, prompt: str = None, timeout: int = 300) -> tuple:
+    def _get_session_file_path(self, session_id: str, cwd: str) -> Path:
+        """Get the path to a Claude session file based on working directory"""
+        # Claude stores sessions in ~/.claude/projects/{project-key}/{session-id}.jsonl
+        # The project key is the cwd path with / replaced by -
+        project_key = cwd.replace('/', '-').replace('\\', '-')
+        if project_key.startswith('-'):
+            project_key = project_key[1:]  # Remove leading dash
+
+        session_file = Path.home() / '.claude' / 'projects' / project_key / f'{session_id}.jsonl'
+        return session_file
+
+    def parse_session_reasoning(self, session_id: str, cwd: str) -> Dict[str, Any]:
+        """Parse a Claude session file for full reasoning chain
+
+        Returns a dictionary with:
+        - session_id: The session ID
+        - reasoning_chain: List of reasoning steps (thinking, tool_use, tool_result, text)
+        - total_steps: Total number of steps
+        - model: Model used
+        - token_usage: Token usage stats
+        """
+        session_file = self._get_session_file_path(session_id, cwd)
+
+        if not session_file.exists():
+            logger.warning(f"[WARN] Session file not found: {session_file}")
+            return {
+                'session_id': session_id,
+                'reasoning_chain': [],
+                'total_steps': 0,
+                'error': f'Session file not found: {session_file}'
+            }
+
+        reasoning_chain = []
+        model_used = None
+        total_input_tokens = 0
+        total_output_tokens = 0
+
+        try:
+            with open(session_file, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        entry = json.loads(line)
+                        entry_type = entry.get('type')
+                        timestamp = entry.get('timestamp')
+
+                        if entry_type == 'assistant':
+                            message = entry.get('message', {})
+
+                            # Track model
+                            if not model_used:
+                                model_used = message.get('model')
+
+                            # Track token usage
+                            usage = message.get('usage', {})
+                            total_input_tokens += usage.get('input_tokens', 0)
+                            total_output_tokens += usage.get('output_tokens', 0)
+
+                            # Parse content blocks
+                            content_list = message.get('content', [])
+                            for content in content_list:
+                                content_type = content.get('type')
+
+                                if content_type == 'thinking':
+                                    reasoning_chain.append({
+                                        'type': 'thinking',
+                                        'content': content.get('thinking', ''),
+                                        'timestamp': timestamp
+                                    })
+                                elif content_type == 'text':
+                                    reasoning_chain.append({
+                                        'type': 'text',
+                                        'content': content.get('text', ''),
+                                        'timestamp': timestamp
+                                    })
+                                elif content_type == 'tool_use':
+                                    reasoning_chain.append({
+                                        'type': 'tool_use',
+                                        'tool_id': content.get('id'),
+                                        'tool_name': content.get('name'),
+                                        'tool_input': content.get('input', {}),
+                                        'timestamp': timestamp
+                                    })
+
+                        elif entry_type == 'user':
+                            # Check for tool results
+                            message = entry.get('message', {})
+                            content_list = message.get('content', [])
+
+                            if isinstance(content_list, list):
+                                for content in content_list:
+                                    if isinstance(content, dict) and content.get('type') == 'tool_result':
+                                        # Get tool result from the entry's toolUseResult field
+                                        tool_result = entry.get('toolUseResult', {})
+                                        reasoning_chain.append({
+                                            'type': 'tool_result',
+                                            'tool_id': content.get('tool_use_id'),
+                                            'content': content.get('content', ''),
+                                            'stdout': tool_result.get('stdout', ''),
+                                            'stderr': tool_result.get('stderr', ''),
+                                            'is_error': content.get('is_error', False),
+                                            'timestamp': timestamp
+                                        })
+
+                    except json.JSONDecodeError:
+                        continue
+
+            logger.info(f"[BRAIN] Parsed {len(reasoning_chain)} reasoning steps from session {session_id}")
+
+            return {
+                'session_id': session_id,
+                'reasoning_chain': reasoning_chain,
+                'total_steps': len(reasoning_chain),
+                'model': model_used,
+                'token_usage': {
+                    'input_tokens': total_input_tokens,
+                    'output_tokens': total_output_tokens,
+                    'total_tokens': total_input_tokens + total_output_tokens
+                }
+            }
+
+        except Exception as e:
+            logger.error(f"[ERROR] Failed to parse session file: {e}")
+            return {
+                'session_id': session_id,
+                'reasoning_chain': [],
+                'total_steps': 0,
+                'error': str(e)
+            }
+
+    def store_reasoning_to_server(self, task_id: int, reasoning_data: Dict[str, Any],
+                                   prompt_sent: str, duration_seconds: float) -> bool:
+        """Store Claude's full reasoning to server for admin viewing"""
+        try:
+            payload = {
+                'task_id': task_id,
+                'session_id': reasoning_data.get('session_id'),
+                'reasoning_chain': json.dumps(reasoning_data.get('reasoning_chain', [])),
+                'total_steps': reasoning_data.get('total_steps', 0),
+                'model': reasoning_data.get('model'),
+                'token_usage': json.dumps(reasoning_data.get('token_usage', {})),
+                'prompt_sent': prompt_sent,
+                'duration_seconds': duration_seconds,
+                'captured_at': datetime.now().isoformat()
+            }
+
+            response = requests.post(
+                f"{self.mcp_server}/admin/tasks/{task_id}/reasoning",
+                json=payload,
+                timeout=30
+            )
+            response.raise_for_status()
+            logger.info(f"[BRAIN] Reasoning stored for task {task_id} ({reasoning_data.get('total_steps', 0)} steps)")
+            return True
+
+        except requests.exceptions.RequestException as e:
+            logger.warning(f"[WARN] Failed to store reasoning: {e}")
+            return False
+
+    def _stream_claude_execution(self, command: list, cwd: str, prompt: str = None,
+                                  timeout: int = 300, session_id: str = None) -> tuple:
         """Execute Claude Code CLI and parse debug logs for detailed tool usage
 
         Args:
@@ -561,13 +720,23 @@ Use the Write tool to save the markdown content."""
             cwd: Working directory for Claude execution
             prompt: Prompt to send via stdin (avoids Windows command-line truncation)
             timeout: Execution timeout in seconds
+            session_id: Optional session ID to use (for reasoning capture)
 
         Returns:
-            tuple: (stdout, stderr, returncode, tool_usage_list)
+            tuple: (stdout, stderr, returncode, tool_usage_list, session_id)
         """
         import subprocess
+        import uuid
+
+        # Generate session ID if not provided
+        if not session_id:
+            session_id = str(uuid.uuid4())
+
+        # Add session ID to command
+        command = command + ['--session-id', session_id]
 
         logger.info("[BOT] Starting Claude Code CLI execution...")
+        logger.info(f"   Session ID: {session_id}")
         logger.info(f"   Timeout: {timeout}s")
         if prompt:
             logger.info(f"   Prompt: {len(prompt)} chars (via stdin)")
@@ -656,7 +825,8 @@ Use the Write tool to save the markdown content."""
             ''.join(full_output).strip(),
             ''.join(error_output).strip(),
             returncode,
-            tools_used
+            tools_used,
+            session_id
         )
 
     def handle_agent_report(self, task_json: Dict, output_format: str = 'md', task_id: int = None) -> Dict:
@@ -725,6 +895,11 @@ CRITICAL: You must save the output to this EXACT filename:
 
 Analyze the database context provided and generate the file now:"""
 
+        # Track execution time for reasoning capture
+        import time as time_module
+        start_time = time_module.time()
+        session_id = None
+
         try:
             # Call Claude Code CLI with auto-approval for automated execution
             # Set working directory to output folder so Claude can write files directly
@@ -733,11 +908,14 @@ Analyze the database context provided and generate the file now:"""
 
             # Use streaming execution for detailed logging
             # Prompt is piped via stdin to handle multi-line prompts correctly on all platforms
-            stdout, stderr, returncode, tools_used = self._stream_claude_execution(
+            stdout, stderr, returncode, tools_used, session_id = self._stream_claude_execution(
                 command,
                 str(output_path),
                 prompt=claude_prompt
             )
+
+            # Calculate duration
+            duration_seconds = time_module.time() - start_time
 
             if returncode == 0:
                 report_content = stdout
@@ -781,6 +959,8 @@ Claude Code CLI execution failed:
 """
 
         except subprocess.TimeoutExpired:
+            duration_seconds = time_module.time() - start_time
+            tools_used = []
             logger.error(f"[ERROR] Claude Code CLI timed out after 5 minutes")
             full_report = f"""# {report_title} - TIMEOUT
 
@@ -791,6 +971,8 @@ Claude Code CLI execution timed out after 5 minutes.
 """
 
         except Exception as e:
+            duration_seconds = time_module.time() - start_time
+            tools_used = []
             logger.error(f"[ERROR] Failed to execute Claude Code CLI: {e}")
             full_report = f"""# {report_title} - ERROR
 
@@ -845,10 +1027,25 @@ Claude Code CLI execution timed out after 5 minutes.
             task_id=task_id
         )
 
+        # Capture and store reasoning chain for admin viewing
+        if session_id and task_id:
+            try:
+                reasoning_data = self.parse_session_reasoning(session_id, str(output_path))
+                if reasoning_data.get('total_steps', 0) > 0:
+                    self.store_reasoning_to_server(
+                        task_id=task_id,
+                        reasoning_data=reasoning_data,
+                        prompt_sent=claude_prompt,
+                        duration_seconds=duration_seconds
+                    )
+            except Exception as e:
+                logger.warning(f"[WARN] Failed to capture reasoning: {e}")
+
         return {
             'path': relative_path,
             'summary': f"Generated {report_title} ({agent_type})",
-            'tool_usage': tools_used
+            'tool_usage': tools_used,
+            'session_id': session_id
         }
 
     def run(self):

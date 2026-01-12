@@ -6,7 +6,7 @@ Using Neon PostgreSQL for persistent chat history
 import os
 from datetime import datetime
 from typing import Optional, List, Dict
-from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer
+from sqlalchemy import create_engine, Column, String, Text, DateTime, Integer, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from dotenv import load_dotenv
@@ -165,6 +165,23 @@ class ClaudeReport(Base):
     file_size = Column(Integer)  # File size in bytes
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class TaskReasoning(Base):
+    """Stores Claude's full reasoning chain for task execution (admin viewing)"""
+    __tablename__ = "task_reasoning"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    task_id = Column(Integer, index=True, nullable=False)  # FK to claude_tasks.id
+    session_id = Column(String(100), index=True)  # Claude Code session ID
+    reasoning_chain = Column(Text)  # JSON array of reasoning steps
+    total_steps = Column(Integer, default=0)  # Number of reasoning steps
+    model = Column(String(100))  # Model used (e.g., 'claude-sonnet-4-5-20250929')
+    token_usage = Column(Text)  # JSON object with token counts
+    prompt_sent = Column(Text)  # The prompt that was sent to Claude
+    duration_seconds = Column(Float)  # How long execution took
+    captured_at = Column(DateTime)  # When the reasoning was captured
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
 
 
 # ============================================================================
@@ -1071,3 +1088,156 @@ def get_available_timezones() -> List[Dict[str, str]]:
     ]
 
     return timezones
+
+
+# ============================================================================
+# TASK REASONING OPERATIONS (Admin Viewing)
+# ============================================================================
+
+def save_task_reasoning(task_id: int, session_id: str, reasoning_chain: str,
+                        total_steps: int, model: str, token_usage: str,
+                        prompt_sent: str, duration_seconds: float, captured_at: str) -> Optional[int]:
+    """
+    Save Claude's reasoning chain for a task execution
+
+    Args:
+        task_id: ID of the Claude task
+        session_id: Claude Code session ID
+        reasoning_chain: JSON string of reasoning steps
+        total_steps: Number of reasoning steps
+        model: Model used
+        token_usage: JSON string of token usage
+        prompt_sent: The prompt sent to Claude
+        duration_seconds: Execution duration
+        captured_at: When reasoning was captured (ISO format)
+
+    Returns:
+        Reasoning ID if successful, None otherwise
+    """
+    if not USE_DATABASE:
+        return None
+
+    db = get_db()
+    if not db:
+        return None
+
+    try:
+        # Parse captured_at string to datetime
+        captured_datetime = None
+        if captured_at:
+            try:
+                captured_datetime = datetime.fromisoformat(captured_at.replace('Z', '+00:00'))
+            except:
+                captured_datetime = datetime.utcnow()
+
+        reasoning = TaskReasoning(
+            task_id=task_id,
+            session_id=session_id,
+            reasoning_chain=reasoning_chain,
+            total_steps=total_steps,
+            model=model,
+            token_usage=token_usage,
+            prompt_sent=prompt_sent,
+            duration_seconds=duration_seconds,
+            captured_at=captured_datetime
+        )
+
+        db.add(reasoning)
+        db.commit()
+        db.refresh(reasoning)
+        return reasoning.id
+
+    except Exception as e:
+        db.rollback()
+        print(f"Error saving task reasoning: {e}")
+        return None
+    finally:
+        db.close()
+
+
+def get_task_reasoning(task_id: int) -> Optional[Dict]:
+    """
+    Get reasoning chain for a specific task
+
+    Args:
+        task_id: ID of the Claude task
+
+    Returns:
+        Dictionary with reasoning data or None
+    """
+    if not USE_DATABASE:
+        return None
+
+    db = get_db()
+    if not db:
+        return None
+
+    try:
+        reasoning = db.query(TaskReasoning).filter(
+            TaskReasoning.task_id == task_id
+        ).order_by(TaskReasoning.created_at.desc()).first()
+
+        if not reasoning:
+            return None
+
+        import json
+
+        return {
+            'id': reasoning.id,
+            'task_id': reasoning.task_id,
+            'session_id': reasoning.session_id,
+            'reasoning_chain': json.loads(reasoning.reasoning_chain) if reasoning.reasoning_chain else [],
+            'total_steps': reasoning.total_steps,
+            'model': reasoning.model,
+            'token_usage': json.loads(reasoning.token_usage) if reasoning.token_usage else {},
+            'prompt_sent': reasoning.prompt_sent,
+            'duration_seconds': reasoning.duration_seconds,
+            'captured_at': reasoning.captured_at.isoformat() if reasoning.captured_at else None,
+            'created_at': reasoning.created_at.isoformat() if reasoning.created_at else None
+        }
+
+    except Exception as e:
+        print(f"Error getting task reasoning: {e}")
+        return None
+    finally:
+        db.close()
+
+
+def get_all_task_reasoning(limit: int = 50) -> List[Dict]:
+    """
+    Get all task reasoning records (for admin dashboard)
+
+    Args:
+        limit: Maximum number of records to return
+
+    Returns:
+        List of reasoning summary dictionaries
+    """
+    if not USE_DATABASE:
+        return []
+
+    db = get_db()
+    if not db:
+        return []
+
+    try:
+        reasonings = db.query(TaskReasoning).order_by(
+            TaskReasoning.created_at.desc()
+        ).limit(limit).all()
+
+        return [{
+            'id': r.id,
+            'task_id': r.task_id,
+            'session_id': r.session_id,
+            'total_steps': r.total_steps,
+            'model': r.model,
+            'duration_seconds': r.duration_seconds,
+            'captured_at': r.captured_at.isoformat() if r.captured_at else None,
+            'created_at': r.created_at.isoformat() if r.created_at else None
+        } for r in reasonings]
+
+    except Exception as e:
+        print(f"Error getting all task reasoning: {e}")
+        return []
+    finally:
+        db.close()

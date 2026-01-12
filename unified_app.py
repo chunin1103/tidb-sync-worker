@@ -479,33 +479,147 @@ def get_claude_task_details(task_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# ============================================================================
+# ADMIN REASONING ENDPOINTS (Claude Thinking Viewer)
+# ============================================================================
+
+@app.route('/admin/tasks/<int:task_id>/reasoning', methods=['POST'])
+def store_task_reasoning_endpoint(task_id):
+    """
+    Store Claude's reasoning chain for a task
+    Called by Claude executor after task completion
+    """
+    try:
+        from flask import request
+        from agent_garden.src.core.database import save_task_reasoning
+
+        data = request.json or {}
+
+        reasoning_id = save_task_reasoning(
+            task_id=task_id,
+            session_id=data.get('session_id'),
+            reasoning_chain=data.get('reasoning_chain'),
+            total_steps=data.get('total_steps', 0),
+            model=data.get('model'),
+            token_usage=data.get('token_usage'),
+            prompt_sent=data.get('prompt_sent'),
+            duration_seconds=data.get('duration_seconds'),
+            captured_at=data.get('captured_at')
+        )
+
+        if reasoning_id:
+            logger.info(f"🧠 Stored reasoning for task {task_id} ({data.get('total_steps', 0)} steps)")
+            return jsonify({'success': True, 'reasoning_id': reasoning_id})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to save reasoning'}), 500
+
+    except Exception as e:
+        logger.error(f"Error storing reasoning for task {task_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/tasks/<int:task_id>/reasoning', methods=['GET'])
+def get_task_reasoning_endpoint(task_id):
+    """
+    Get reasoning chain for a specific task
+    """
+    try:
+        from agent_garden.src.core.database import get_task_reasoning
+
+        reasoning = get_task_reasoning(task_id)
+
+        if reasoning:
+            return jsonify({'success': True, 'reasoning': reasoning})
+        else:
+            return jsonify({'success': False, 'error': 'No reasoning found for this task'}), 404
+
+    except Exception as e:
+        logger.error(f"Error getting reasoning for task {task_id}: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/reasoning', methods=['GET'])
+def list_all_reasoning():
+    """
+    List all task reasoning records (admin dashboard)
+    """
+    try:
+        from flask import request
+        from agent_garden.src.core.database import get_all_task_reasoning
+
+        limit = request.args.get('limit', 50, type=int)
+        reasonings = get_all_task_reasoning(limit=limit)
+
+        return jsonify({'success': True, 'reasonings': reasonings, 'count': len(reasonings)})
+
+    except Exception as e:
+        logger.error(f"Error listing reasoning: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/admin/reasoning/viewer')
+def reasoning_viewer_page():
+    """
+    Admin page to view Claude's reasoning chains
+    """
+    return render_template('admin_reasoning_viewer.html')
+
+
 @app.route('/AgentGarden/migrate', methods=['POST'])
 def run_migration():
     """
-    Run database migrations to add missing columns
+    Run database migrations to add missing columns/tables
     This is needed when new columns are added to SQLAlchemy models
     """
     try:
-        from agent_garden.src.core.database import get_db, engine
+        from agent_garden.src.core.database import get_db, engine, Base
         from sqlalchemy import text
 
         migrations = []
 
-        # Check and add tool_usage column if missing
         with engine.connect() as conn:
-            # Check if column exists
+            # Check and add tool_usage column if missing
             result = conn.execute(text("""
                 SELECT column_name FROM information_schema.columns
                 WHERE table_name = 'claude_tasks' AND column_name = 'tool_usage'
             """))
             if result.fetchone() is None:
-                # Add the column
                 conn.execute(text("ALTER TABLE claude_tasks ADD COLUMN tool_usage TEXT"))
                 conn.commit()
                 migrations.append("Added 'tool_usage' column to claude_tasks table")
                 logger.info("✅ Migration: Added tool_usage column to claude_tasks")
             else:
                 migrations.append("Column 'tool_usage' already exists")
+
+            # Check and create task_reasoning table if missing
+            result = conn.execute(text("""
+                SELECT table_name FROM information_schema.tables
+                WHERE table_name = 'task_reasoning'
+            """))
+            if result.fetchone() is None:
+                conn.execute(text("""
+                    CREATE TABLE task_reasoning (
+                        id SERIAL PRIMARY KEY,
+                        task_id INTEGER NOT NULL,
+                        session_id VARCHAR(100),
+                        reasoning_chain TEXT,
+                        total_steps INTEGER DEFAULT 0,
+                        model VARCHAR(100),
+                        token_usage TEXT,
+                        prompt_sent TEXT,
+                        duration_seconds FLOAT,
+                        captured_at TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+                conn.execute(text("CREATE INDEX idx_task_reasoning_task_id ON task_reasoning(task_id)"))
+                conn.execute(text("CREATE INDEX idx_task_reasoning_session_id ON task_reasoning(session_id)"))
+                conn.execute(text("CREATE INDEX idx_task_reasoning_created_at ON task_reasoning(created_at)"))
+                conn.commit()
+                migrations.append("Created 'task_reasoning' table for admin reasoning viewer")
+                logger.info("✅ Migration: Created task_reasoning table")
+            else:
+                migrations.append("Table 'task_reasoning' already exists")
 
         return jsonify({
             'success': True,
