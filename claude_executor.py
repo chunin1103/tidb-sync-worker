@@ -556,10 +556,14 @@ Use the Write tool to save the markdown content."""
     def _get_session_file_path(self, session_id: str, cwd: str) -> Path:
         """Get the path to a Claude session file based on working directory"""
         # Claude stores sessions in ~/.claude/projects/{project-key}/{session-id}.jsonl
-        # The project key is the cwd path with / replaced by -
-        project_key = cwd.replace('/', '-').replace('\\', '-')
-        if project_key.startswith('-'):
-            project_key = project_key[1:]  # Remove leading dash
+        # The project key is the cwd path with:
+        # - / replaced by -
+        # - spaces replaced by -
+        # - leading - preserved
+        project_key = cwd.replace('/', '-').replace('\\', '-').replace(' ', '-').replace('_', '-')
+        # Ensure leading dash for absolute paths
+        if not project_key.startswith('-'):
+            project_key = '-' + project_key
 
         session_file = Path.home() / '.claude' / 'projects' / project_key / f'{session_id}.jsonl'
         return session_file
