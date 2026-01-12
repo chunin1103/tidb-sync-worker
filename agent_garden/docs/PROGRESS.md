@@ -4,45 +4,43 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 
 ---
 
-## 2026-01-06: Fix Prompt Truncation + Markdown Preservation
-**Status**: Completed
-**Files Modified**: claude_executor.py (lines 556-601, 728-739, 821-833)
-**Problem**: Multi-line prompts truncated on Windows; Claude's markdown reports overwritten with empty template
-**Root Cause**: Command-line args with newlines truncated by shell; executor always overwrote markdown files
-**Approach**: Stdin pipe (vs command-line arg) + preserve Claude's file if content > 200 bytes
-**Solution**:
-1. Added `prompt` parameter to `_stream_claude_execution()`, pipe via stdin (lines 589, 601)
-2. Changed call site: `prompt=claude_prompt` instead of including in command (line 739)
-3. For markdown: Check if Claude created file with content, preserve it (lines 821-833)
-**Testing**: Full 3257-char prompts delivered, Claude generates 2089-char reports with real data tables
+## 2026-01-06: Windows Claude Executor - Complete Fix Session
+**Status**: Partially Complete (1 remaining issue)
+**Files Modified**: claude_executor.py (lines 25-63, 556-601, 728-739, 821-833)
+**Commits**: 33fa639, f81c386
 
----
+### Issues Fixed (3/4)
 
-## 2026-01-06: Fix Claude CLI subprocess on Windows (shell=True)
-**Status**: Completed
-**Files Modified**: claude_executor.py (lines 575-587)
-**Problem**: Claude CLI failed with `[WinError 2] The system cannot find the file specified` on Windows
-**Root Cause**: Python `subprocess.Popen(['claude', ...])` doesn't find `.cmd` files on Windows - only `.exe`
-**Approach**: Option A (`shell=True` on Windows) vs Option B (explicit `claude.cmd`) - chose A for flexibility
-**Solution**:
-1. Added `use_shell = sys.platform == 'win32'` detection (line 576)
-2. Added `shell=use_shell` parameter to subprocess.Popen (line 584)
-3. Fixed remaining emoji on line 587: `📝` → `[WORK]`
-**Testing**: Claude CLI now executes successfully on Windows (exit code: 0), reports generated and synced
+| Issue | Root Cause | Fix Applied |
+|-------|------------|-------------|
+| `[WinError 2]` - Claude not found | Python subprocess can't find `.cmd` files | Added `shell=True` on Windows (line 584) |
+| Prompts truncated | Command-line args with newlines cut off by Windows shell | Pipe prompt via stdin (lines 589, 601, 739) |
+| Markdown files empty | Executor overwrote Claude's content with stdout template | Check if file > 200 bytes, preserve it (lines 821-833) |
 
----
+### Remaining Issue (TODO)
 
-## 2026-01-06: Cross-Platform Claude Executor (Windows + Mac)
-**Status**: Completed
-**Files Modified**: claude_executor.py (lines 25-63, 81-82, 865-872)
-**Commits**: 33fa639
-**Problem**: Executor failed on Windows - hardcoded Mac OneDrive path + emoji characters crashed Windows console
-**Approach**: Environment variable detection with fallbacks (vs hardcoded paths per OS)
-**Solution**:
-1. Added `get_onedrive_path()` with priority: `CLAUDE_TOOLS_PATH` env var → Windows `OneDrive`/`OneDriveConsumer`/`OneDriveCommercial` env vars → common path existence check → default fallback
-2. Replaced all emoji characters (📁✅❌🚀 etc.) with ASCII tags ([DIR], [OK], [ERROR], [START] etc.) for Windows console compatibility
-3. Updated validation to show helpful override instructions: `set CLAUDE_TOOLS_PATH=C:\path\to\Claude Tools`
-**Testing**: Verified on Windows - detected `C:\Users\ASUS\OneDrive\Claude Tools` via `OneDrive` env var, executor runs without errors
+| Issue | Reports show generic text in UI instead of Claude's analysis |
+|-------|-------------------------------------------------------------|
+| **Symptom** | API returns: `"content": "Report generated successfully..."` instead of actual tables/analysis |
+| **Root Cause** | Line 843 sends `full_report` (stdout) to `sync_report_to_server()`, not `claude_content` |
+| **Fix Needed** | Change line 843 from `report_content=full_report` to `report_content=sync_content` |
+| **Code Location** | claude_executor.py lines 821-846 |
+
+**Proposed Fix:**
+```python
+# Line 827-828: After reading Claude's content
+sync_content = claude_content  # Use Claude's content for server sync
+
+# Line 843: Change from
+report_content=full_report
+# To
+report_content=sync_content
+```
+
+### Testing Summary
+- Local files: ✅ Full 2597-char content with tables saved correctly
+- Tool usage: ✅ `['Write']` detected and saved to database
+- Server sync: ❌ Only stdout template synced, not Claude's actual content
 
 ---
 
@@ -544,6 +542,26 @@ This file tracks all completed tasks with concise summaries (≤10 lines per tas
 **Commits**: 06a5c1c
 **Testing**: Local Flask app verified, deployed to Render (https://gpt-mcp.onrender.com/AgentGarden)
 **Impact**: Users can schedule tasks without knowing cron syntax - just click and pick time
+
+---
+
+## 2026-01-13: Claude Reasoning Viewer - Admin Page for Full Thinking Chain
+**Status**: Completed
+**Files Modified**: claude_executor.py:556-712,898-1044, agent_garden/src/core/database.py:9,170-184,1093-1243, unified_app.py:482-632
+**Files Created**: templates/admin_reasoning_viewer.html (554 lines), agent_garden/docs/CLAUDE_REASONING_VIEWER.md
+**Commits**: d3ca049, 97ce1f8
+**Problem**: No visibility into Claude's reasoning during task execution - wanted ChatGPT/Gemini-like thinking display
+**Discovery**: Claude Code already stores full reasoning chain in session files (`~/.claude/projects/{key}/{session}.jsonl`) including thinking blocks, tool calls, and results
+**Approach**: Parse session files after execution (vs real-time streaming) - simpler, captures everything
+**Key Changes**:
+- **claude_executor.py**: Added `--session-id` flag to execution, `parse_session_reasoning()` to extract thinking/tool_use/tool_result/text blocks, `store_reasoning_to_server()` to POST to API
+- **database.py**: Added `TaskReasoning` model (task_id, session_id, reasoning_chain JSON, total_steps, model, token_usage, duration_seconds)
+- **unified_app.py**: Added 4 endpoints - POST/GET `/admin/tasks/{id}/reasoning`, GET `/admin/reasoning`, GET `/admin/reasoning/viewer`
+- **admin_reasoning_viewer.html**: Dark theme UI with sidebar (task list) + main panel (reasoning chain with color-coded steps: thinking, tool_use, tool_result, text)
+**Bug Fix**: Session file path generation wrong - needed to replace spaces/underscores with hyphens and ensure leading dash
+**Testing**: Tasks #68, #69 captured with 3-4 reasoning steps each, model=claude-opus-4-5-20251101
+**URL**: https://gpt-mcp.onrender.com/admin/reasoning/viewer
+**Impact**: Full visibility into Claude's thinking process - can see exactly what Claude considered, which tools it used, and why
 
 ---
 
